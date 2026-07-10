@@ -2,6 +2,7 @@ import { useMemo, useCallback } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { checkWin, canCaiPiao } from '../engine/win';
 import { getAnKongOptions, getJiaGangOptions } from '../engine/hand';
+import { isFortuneTile } from '../engine/tile';
 import type { Tile } from '../engine/types';
 
 /**

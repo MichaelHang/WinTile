@@ -275,6 +275,7 @@ describe('Win Detection', () => {
         isBaoTou: false, isCaiPiao: false, piaoCount: 0,
         isGangKai: false, gangCount: 0, isGangBao: false,
         hasFortune: true, isPure: false, isLuxury: false, luxuryCount: 0,
+        isQingYiSe: false, isHunYiSe: false, isZiYiSe: false,
         melds: [], pair: [{ id: '', type: { honor: 'bai' } }, { id: '', type: { honor: 'bai' } }],
       };
       expect(hasMinimumTai(result, [], [])).toBe(true);
@@ -286,6 +287,7 @@ describe('Win Detection', () => {
         isBaoTou: false, isCaiPiao: false, piaoCount: 0,
         isGangKai: false, gangCount: 0, isGangBao: false,
         hasFortune: false, isPure: false, isLuxury: false, luxuryCount: 0,
+        isQingYiSe: false, isHunYiSe: false, isZiYiSe: false,
         melds: [], pair: [{ id: '', type: { suit: 'wan', rank: 1 } }, { id: '', type: { suit: 'wan', rank: 1 } }],
       };
       expect(hasMinimumTai(result, [], [])).toBe(true);
@@ -301,6 +303,7 @@ describe('Scoring', () => {
         isBaoTou: false, isCaiPiao: false, piaoCount: 0,
         isGangKai: false, gangCount: 0, isGangBao: false,
         hasFortune: false, isPure: false, isLuxury: false, luxuryCount: 0,
+        isQingYiSe: false, isHunYiSe: false, isZiYiSe: false,
         melds: [], pair: [{ id: '', type: { honor: 'bai' } }, { id: '', type: { honor: 'bai' } }],
         ...overrides,
       };
@@ -352,6 +355,7 @@ describe('Scoring', () => {
         isBaoTou: false, isCaiPiao: false, piaoCount: 0,
         isGangKai: false, gangCount: 0, isGangBao: false,
         hasFortune: false, isPure: false, isLuxury: false, luxuryCount: 0,
+        isQingYiSe: false, isHunYiSe: false, isZiYiSe: false,
         melds: [], pair: [{ id: '', type: { honor: 'bai' } }, { id: '', type: { honor: 'bai' } }],
         ...overrides,
       };

@@ -2,7 +2,7 @@
 // Hangzhou Mahjong (杭州麻将) - AI Strategy Engine
 // ============================================================
 
-import type { Tile, TileType, GameState, AIAction, Meld } from './types';
+import type { Tile, TileType, GameState, AIAction, Suit } from './types';
 import { tileTypeToCode, isSameType, isSuitTile, isFortuneTile, createTile, codeToTileType } from './tile';
 import { handToCounts, getChiOptions, canPong, canMingKong, getAnKongOptions } from './hand';
 import { checkWin, hasMinimumTai, canCaiPiao } from './win';
@@ -58,29 +58,9 @@ export function clearShantenCache() {
 
 // === 性能优化：预计算查找表 ===
 
-// 预计算每种牌的邻居（用于快速判断搭子）
-const NEIGHBOR_CACHE = new Map<number, { left: number | null; right: number | null; left2: number | null; right2: number | null }>();
-
-function getNeighbors(code: number) {
-  if (NEIGHBOR_CACHE.has(code)) return NEIGHBOR_CACHE.get(code)!;
-  
-  const rank = code % 9;
-  
-  const neighbors = {
-    left: rank > 0 ? code - 1 : null,
-    right: rank < 8 ? code + 1 : null,
-    left2: rank > 1 ? code - 2 : null,
-    right2: rank < 7 ? code + 2 : null,
-  };
-  
-  NEIGHBOR_CACHE.set(code, neighbors);
-  return neighbors;
-}
-
 // 清除所有缓存
 export function clearAllCaches() {
   shantenCache.clear();
-  NEIGHBOR_CACHE.clear();
 }
 
 // === 读牌功能：分析牌河推测对手手牌 ===
@@ -100,8 +80,7 @@ function analyzeDiscardCounts(
 // 判断一张牌是否安全（打出后不容易被别人胡）
 function getTileSafetyScore(
   tile: Tile,
-  currentRoundDiscards: { tile: TileType; playerIndex: number }[],
-  hand: Tile[]
+  currentRoundDiscards: { tile: TileType; playerIndex: number }[]
 ): number {
   const code = tileTypeToCode(tile.type);
   const discardCounts = analyzeDiscardCounts(currentRoundDiscards);
@@ -126,35 +105,6 @@ function getTileSafetyScore(
   }
   
   return safety;
-}
-
-// 推测哪些牌可能是危险牌（对手可能在听）
-function getDangerousTiles(
-  currentRoundDiscards: { tile: TileType; playerIndex: number }[]
-): Set<number> {
-  const dangerous = new Set<number>();
-  const discardCounts = analyzeDiscardCounts(currentRoundDiscards);
-  
-  // 分析数牌（0-26）
-  for (let code = 0; code < 27; code++) {
-    if (discardCounts[code] > 0) continue; // 已经被打出了，不太危险
-    
-    const rank = code % 9;
-    
-    // 中张牌（3-7）如果没被打出，可能危险
-    if (rank >= 2 && rank <= 6) {
-      // 检查相邻牌是否被打出
-      const leftDiscarded = rank > 0 ? discardCounts[code - 1] > 0 : false;
-      const rightDiscarded = rank < 8 ? discardCounts[code + 1] > 0 : false;
-      
-      // 如果相邻牌被打出，说明有人在做顺子，这张牌可能危险
-      if (leftDiscarded || rightDiscarded) {
-        dangerous.add(code);
-      }
-    }
-  }
-  
-  return dangerous;
 }
 
 // === 听牌选择：计算每种打法的进张数 ===
@@ -223,68 +173,6 @@ function findBestTenpaiDiscard(
 
 
 // === Tile Efficiency Analysis ===
-
-// Count effective tiles: how many tiles can improve shanten
-function countEffectiveTiles(
-  hand: Tile[],
-  meldCount: number,
-  fortuneType: TileType | null
-): number {
-  const currentShanten = calculateShantenCached(hand, meldCount, fortuneType).shanten;
-  if (currentShanten < 0) return 0; // Already won
-  
-  let effectiveCount = 0;
-  const counts = handToCounts(hand);
-  
-  for (let code = 0; code < TOTAL_TILE_TYPES; code++) {
-    if (fortuneType && code === tileTypeToCode(fortuneType)) continue;
-    if (counts[code] >= 4) continue;
-    
-    const tile = codeToTileType(code);
-    const newTile = createTile(tile);
-    const newHand = [...hand, newTile];
-    const newShanten = calculateShanten(newHand, meldCount, fortuneType).shanten;
-    
-    if (newShanten < currentShanten) {
-      effectiveCount += 4 - counts[code];
-    }
-  }
-  
-  return effectiveCount;
-}
-
-// Count waiting tiles when in tenpai
-function countWaitingTiles(
-  hand: Tile[],
-  melds: Meld[],
-  fortuneType: TileType | null
-): number {
-  let waitingCount = 0;
-  const counts = handToCounts(hand);
-  
-  // Only check suit tiles and common honors
-  for (let code = 0; code < 27; code++) {
-    if (fortuneType && code === tileTypeToCode(fortuneType)) continue;
-    if (counts[code] >= 4) continue;
-    
-    const tile = codeToTileType(code);
-    const newTile = createTile(tile);
-    const newHand = [...hand, newTile];
-    
-    const winResult = checkWin(newHand, melds, newTile, fortuneType, {
-      fromDraw: true,
-      fromDiscard: false
-    });
-    
-    if (winResult) {
-      waitingCount += 4 - counts[code];
-    }
-  }
-  
-  return waitingCount;
-}
-
-
 
 // === Shanten Calculator ===
 
@@ -472,35 +360,6 @@ function calcSevenPairsShanten(counts: number[], fortuneCount: number): number {
 
 // === Discard Selection ===
 
-// Hard AI: score for safety (higher = safer to discard)
-function safetyScore(
-  tile: Tile,
-  hand: Tile[],
-  discardHistory: { tile: TileType; playerIndex: number }[]
-): number {
-  let score = 0;
-
-  // Same tile already discarded = very safe
-  const sameDiscards = discardHistory.filter(
-    (d) => isSameType(d.tile, tile.type)
-  ).length;
-  if (sameDiscards >= 2) score += 3;
-  else if (sameDiscards === 1) score += 1.5;
-
-  // Honor tiles are slightly safer (narrower range of useful tiles)
-  if ('honor' in tile.type) score += 0.3;
-
-  // Edge tiles (1, 9) slightly safer
-  if (isSuitTile(tile.type) && (tile.type.rank === 1 || tile.type.rank === 9)) score += 0.2;
-
-  // We hold same tile = very safe (opponents can't use it)
-  const heldCount = hand.filter((t) => isSameType(t.type, tile.type)).length;
-  if (heldCount >= 2) score += 1;
-  else if (heldCount === 1) score += 0.5;
-
-  return score;
-}
-
 // Pick the best tile to discard
 export function pickDiscard(
   hand: Tile[],
@@ -543,10 +402,11 @@ export function pickDiscard(
       
       // Prefer discarding edge tiles (1, 9) that don't have neighbors
       if (isSuitTile(tile.type)) {
-        const rank = tile.type.rank;
+        const suitTile = tile.type as { suit: string; rank: number };
+        const rank = suitTile.rank;
         if (rank === 1 || rank === 9) {
           const hasNeighbor = hand.some(t => 
-            isSameType(t.type, { suit: tile.type.suit, rank: rank === 1 ? 2 : 8 } as TileType)
+            isSameType(t.type, { suit: suitTile.suit, rank: rank === 1 ? 2 : 8 } as TileType)
           );
           if (!hasNeighbor) score -= 1;
         }
@@ -584,12 +444,13 @@ export function pickDiscard(
       
       // Penalty for discarding useful tiles (middle tiles, connected tiles)
       if (isSuitTile(tile.type)) {
-        const rank = tile.type.rank;
+        const suitTile = tile.type as { suit: Suit; rank: number };
+        const rank = suitTile.rank;
         // Middle tiles (3-7) are more valuable
         if (rank >= 3 && rank <= 7) score += 2;
         // Check if tile has neighbors in hand
-        const hasLeft = hand.some(t => isSameType(t.type, { suit: tile.type.suit, rank: Math.max(1, rank - 1) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 }));
-        const hasRight = hand.some(t => isSameType(t.type, { suit: tile.type.suit, rank: Math.min(9, rank + 1) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 }));
+        const hasLeft = hand.some(t => isSameType(t.type, { suit: suitTile.suit, rank: Math.max(1, rank - 1) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 }));
+        const hasRight = hand.some(t => isSameType(t.type, { suit: suitTile.suit, rank: Math.min(9, rank + 1) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 }));
         if (hasLeft && hasRight) score += 3; // Part of a sequence, keep it
         else if (hasLeft || hasRight) score += 1; // Has one neighbor
       }
@@ -678,7 +539,7 @@ export function pickDiscard(
       
       // Read tiles: prefer discarding safe tiles when close to tenpai
       if (discardHistory && currentShanten <= 1) {
-        const safety = getTileSafetyScore(tile, discardHistory, hand);
+        const safety = getTileSafetyScore(tile, discardHistory);
         score -= safety * 0.5; // Bonus for safe tiles
       }
       

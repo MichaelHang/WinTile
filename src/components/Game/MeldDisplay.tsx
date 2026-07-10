@@ -11,7 +11,6 @@ export function MeldDisplay({ melds, position, rot = 0 }: MeldDisplayProps) {
   if (melds.length === 0) return null;
 
   const isLeftOrRight = position === 'left' || position === 'right';
-  const horizontalTiles = Math.abs(rot) === 90;
 
   // For left/right AI: melds stack vertically (top-to-bottom), each meld's tiles read top-to-bottom.
   // Tiles within a meld overlap (like the hand) so a 3-tile pong stays short instead of 126px tall,

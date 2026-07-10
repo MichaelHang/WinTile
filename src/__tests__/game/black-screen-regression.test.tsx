@@ -49,7 +49,7 @@ describe('drawn-tile crash regression', () => {
 
   it('GameTable 不把 AI 的摸牌显示到人类手牌上（currentPlayer 为 AI 时不传 drawnTileId）', () => {
     // 固定对家(玩家 2)为庄家
-    let state = createInitialState({ ...SETTINGS, dealerIndex: 2 });
+    let state = createInitialState(SETTINGS);
     state = startRound(state, Date.now());
     // 模拟对家刚刚摸了一张牌：lastDrawnTile 是对家的牌，当前回合也是对家
     const aiTile = createTile({ suit: 'tiao', rank: 5 });
@@ -83,7 +83,6 @@ describe('drawn-tile crash regression', () => {
           onJiaGang={noop}
           animatingTile={null}
           currentPlayerIndex={2}
-          breatheDuration={1000}
           drawDuration={400}
           discardDuration={300}
           reactionDuration={300}

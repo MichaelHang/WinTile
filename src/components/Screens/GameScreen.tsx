@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { GameTable } from '../Game/GameTable';
 import { SettingsPanel } from '../SettingsPanel';
 import type { GameState, Tile } from '../../engine/types';
@@ -54,7 +54,6 @@ export function GameScreen({
   const drawDuration = getAnimationDuration('draw', settings.animationSpeed);
   const discardDuration = getAnimationDuration('discard', settings.animationSpeed);
   const reactionDuration = getAnimationDuration('reaction', settings.animationSpeed);
-  const breatheDuration = getAnimationDuration('breathe', settings.animationSpeed);
 
   // Track animation state
   const [animatingTile, setAnimatingTile] = useState<{
@@ -149,23 +148,6 @@ export function GameScreen({
 
   const lastEvent = gameState.eventLog[gameState.eventLog.length - 1];
   const currentPlayerIndex = gameState.currentPlayerIndex;
-
-  // Animation props for each player
-  const getAnimProps = (playerIndex: number) => {
-    if (!animatingTile) return null;
-    if (animatingTile.playerId !== playerIndex) return null;
-
-    if (animatingTile.type === 'draw') {
-      return { drawAnimTileId: animatingTile.tileId, drawAnimDuration: drawDuration };
-    } else if (animatingTile.type === 'discard') {
-      return { discardAnimTileId: animatingTile.tileId, discardAnimDuration: discardDuration };
-    } else if (animatingTile.type === 'reaction') {
-      return { reactionAnimTileIds: [animatingTile.tileId], reactionAnimDuration: reactionDuration };
-    } else if (animatingTile.type === 'win') {
-      return { winAnimTileId: animatingTile.tileId };
-    }
-    return null;
-  };
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-[#0d1b2a]">
@@ -298,7 +280,6 @@ export function GameScreen({
           onJiaGang={onJiaGang}
           animatingTile={animatingTile}
           currentPlayerIndex={currentPlayerIndex}
-          breatheDuration={breatheDuration}
           drawDuration={drawDuration}
           discardDuration={discardDuration}
           reactionDuration={reactionDuration}

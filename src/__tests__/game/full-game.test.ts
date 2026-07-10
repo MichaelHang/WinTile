@@ -9,18 +9,16 @@ import {
   executeDraw,
   executeDiscard,
   executePassAll,
-  executePlayerPass,
   executeChi,
   executePong,
   executeAnKong,
+  executeMingKong,
   executeHu,
-  checkWallExhaustion,
   advanceDealer,
 } from '../../engine/state';
-import { buildWall, dealTiles } from '../../engine/wall';
 import { resetTileIdCounter } from '../../engine/tile';
-import { getAvailableReactions, getNextPlayerIndex } from '../../engine/rules';
-import type { GameState, GameSettings, GameEvent } from '../../engine/types';
+import { getAvailableReactions } from '../../engine/rules';
+import type { GameSettings, GameEvent } from '../../engine/types';
 
 const DEFAULT_SETTINGS: GameSettings = {
   humanPlayerIndex: 0,

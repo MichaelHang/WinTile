@@ -21,7 +21,6 @@ function App() {
 
   const gameState = useGameStore((s) => s.gameState);
   const newGame = useGameStore((s) => s.newGame);
-  const resetGame = useGameStore((s) => s.resetGame);
   const nextRound = useGameStore((s) => s.nextRound);
   
   // New game with confirmation

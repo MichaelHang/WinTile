@@ -3,8 +3,8 @@
 // 模拟完整游戏，正确驱动所有阶段状态机
 // ============================================================
 
-import { describe, it, expect, vi } from 'vitest';
-import { computeAIAction, decideReaction } from '@/engine/ai';
+import { describe, it, expect } from 'vitest';
+import { computeAIAction, decideReaction } from './ai';
 import {
   createInitialState,
   startRound,
@@ -18,14 +18,10 @@ import {
   executePassAll,
   executePlayerPass,
   checkWallExhaustion,
-} from '@/engine/state';
-import { sortHand } from '@/engine/tile';
-import type { GameState, AIAction } from '@/engine/types';
+} from './state';
+import type { AIAction, GameSettings } from './types';
 
-// ---- Helper: get next player ----
-function getNextPlayerIndex(current: number): number {
-  return (current + 1) % 4;
-}
+
 
 // ---- Simulate one full round, properly driving ALL phases ----
 function simulateRound(seed: number): {
@@ -37,11 +33,13 @@ function simulateRound(seed: number): {
   draws: number;
   lastEvents: string[];
 } {
-  const settings = {
+  const settings: GameSettings = {
+    humanPlayerIndex: 0,
     baseScore: 10,
     initialScore: 1000,
-    aiDifficulty: 'medium' as const,
-    maxScore: 10000,
+    aiDifficulty: 'medium',
+    animationSpeed: 'normal',
+    soundEnabled: false,
   };
 
   let state = createInitialState(settings);
@@ -56,7 +54,6 @@ function simulateRound(seed: number): {
 
     // ---- Phase: player_turn → execute draw ----
     if (state.phase === 'player_turn') {
-      const prevState = state;
       state = executeDraw(state);
 
       if (state.phase === 'round_over') {
@@ -122,8 +119,10 @@ function simulateRound(seed: number): {
           };
         } else if (action.kind === 'kong' && action.kongType === 'ankong') {
           state = executeAnKong(state, action.tileId || '');
+        } else if (action.kind === 'discard' || action.kind === 'caiPiao') {
+          state = executeDiscard(state, action.tileId);
         } else {
-          state = executeDiscard(state, action.tileId || player.hand[player.hand.length - 1].id);
+          state = executeDiscard(state, player.hand[player.hand.length - 1].id);
         }
       } else {
         // Human player → auto-discard last tile
@@ -190,7 +189,7 @@ function simulateRound(seed: number): {
 
     // ---- Phase: declaring_win ----
     if (state.phase === 'declaring_win') {
-      const winnerIdx = state.lastWinnerIndex;
+      const winnerIdx = state.lastWinnerIndex ?? null;
       const fromDraw = state.lastWinFromDiscard === false;
       events.push(`Turn ${turnCount}: Win declared - player ${winnerIdx} (fromWall=${fromDraw})`);
       if (winnerIdx === null) {

@@ -2,8 +2,6 @@ import type { GameState, Tile } from '../../engine/types';
 import { PlayerArea } from './PlayerArea';
 import { CenterInfo } from './CenterInfo';
 import { ActionPanel } from './ActionPanel';
-import { getAnimationDuration } from '../../hooks/useAnimations';
-import { useSettingsStore } from '../../store/settingsStore';
 
 interface GameTableProps {
   gameState: GameState;
@@ -16,6 +14,8 @@ interface GameTableProps {
   onPass: () => void;
   canSelfHu: boolean;
   onSelfHu: () => void;
+  canCaiPiao?: boolean;
+  onCaiPiao?: () => void;
   anKongOptions: Tile[];
   jiaGangOptions: { tile: Tile; meldIndex: number }[];
   onAnKong: (tileId: string) => void;
@@ -27,7 +27,6 @@ interface GameTableProps {
     playerId: number;
   } | null;
   currentPlayerIndex: number;
-  breatheDuration: number;
   drawDuration: number;
   discardDuration: number;
   reactionDuration: number;
@@ -41,7 +40,6 @@ export function GameTable({
   anKongOptions, jiaGangOptions, onAnKong, onJiaGang,
   animatingTile,
   currentPlayerIndex,
-  breatheDuration,
   drawDuration,
   discardDuration,
   reactionDuration,
@@ -49,9 +47,6 @@ export function GameTable({
 }: GameTableProps) {
   const { players, phase, fortuneTile, laoCount, wall, dealerIndex, pendingReactions } = gameState;
 
-  const { settings } = useSettingsStore();
-
-  const isHumanTurn = phase === 'awaiting_discard' && currentPlayerIndex === 0;
   const isAwaitingReactions = phase === 'awaiting_reactions';
   const humanHasPendingReaction = pendingReactions.some((r) => r.playerIndex === 0);
 
@@ -139,19 +134,13 @@ export function GameTable({
 
       {/* Bottom player (Human) */}
       <div className="flex flex-col items-center justify-end" style={{ minHeight: '30%', overflow: 'visible' }}>
-        <PlayerArea 
+        <PlayerArea
           player={players[0]} 
           position="bottom"
           isCurrentTurn={currentPlayerIndex === 0} 
           isHuman={true}
           selectedTileId={selectedTileId}
           onTileClick={(tile) => onTileClick(tile.id)}
-          canSelfHu={canSelfHu} 
-          onSelfHu={onSelfHu}
-          anKongOptions={anKongOptions}
-          jiaGangOptions={jiaGangOptions}
-          onAnKong={onAnKong}
-          onJiaGang={onJiaGang}
           isBreathing={isBreathing(0)}
           drawnTileId={currentPlayerIndex === 0 ? lastDrawnTile?.id : undefined}
           {...getAnimProps(0)}

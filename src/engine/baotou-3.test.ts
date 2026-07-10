@@ -2,10 +2,10 @@
 // 爆头 3 财神专项测试
 // ============================================================
 
-import { describe, it, expect } from 'vitest';
-import { checkWin, isBaoTouState } from '@/engine/win';
-import { createTile, resetTileIdCounter } from '@/engine/tile';
-import type { TileType, Meld } from '@/engine/types';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { checkWin, isBaoTouState } from './win';
+import { createTile, resetTileIdCounter } from './tile';
+import type { TileType, Tile } from './types';
 
 function fortuneTile(): TileType {
   return { honor: 'bai' };

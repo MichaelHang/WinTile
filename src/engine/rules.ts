@@ -7,6 +7,7 @@ import type {
   Reaction,
   Tile,
   ChiOption,
+  Meld,
 } from './types';
 import {
   canPong,

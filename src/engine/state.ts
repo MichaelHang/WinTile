@@ -22,7 +22,7 @@ import { checkWin, hasMinimumTai, canCaiPiao } from './win';
 import { getAvailableReactions, getNextPlayerIndex } from './rules';
 import { WALL_EXHAUST_THRESHOLD } from './constants';
 import { calculatePayouts } from './scoring';
-import type { PayoutEntry } from './types';
+
 
 // Helper: random dealer for new game
 function randomDealerIndex(): number {

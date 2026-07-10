@@ -14,12 +14,7 @@ import {
 } from '../../engine/state';
 import { checkWin } from '../../engine/win';
 import { getAnKongOptions } from '../../engine/hand';
-import {
-  createTile,
-  resetTileIdCounter,
-  tileTypeToCode,
-  sortHand,
-} from '../../engine/tile';
+import { resetTileIdCounter } from '../../engine/tile';
 import type { GameSettings, Tile, TileType, Meld } from '../../engine/types';
 
 const DEFAULT_SETTINGS: GameSettings = {
@@ -27,6 +22,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   aiDifficulty: 'medium',
   animationSpeed: 'normal',
   baseScore: 1,
+  initialScore: 1000,
   soundEnabled: false,
 };
 

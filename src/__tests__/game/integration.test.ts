@@ -3,7 +3,7 @@
 // 使用确定性手牌，覆盖全部胡牌模式和结算规则
 // ============================================================
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   createInitialState,
   startRound,
@@ -19,13 +19,9 @@ import {
   executeCaiPiao,
   advanceDealer,
 } from '../../engine/state';
-import { buildWall, dealTiles, drawTile } from '../../engine/wall';
 import {
-  createTile,
   resetTileIdCounter,
-  tileTypeToCode,
   sortHand,
-  isSameType,
   isFortuneTile,
 } from '../../engine/tile';
 import { checkWin, isBaoTouState, canCaiPiao } from '../../engine/win';
@@ -52,8 +48,8 @@ const DEFAULT_SETTINGS: GameSettings = {
 };
 
 // Helper: create state with fixed dealer for tests
-function createState(dealerIndex?: number): GameState {
-  return createInitialState({ ...DEFAULT_SETTINGS, dealerIndex });
+function createState(): GameState {
+  return createInitialState(DEFAULT_SETTINGS);
 }
 
 const FORTUNE_TYPE: TileType = { honor: 'bai' };
@@ -703,6 +699,9 @@ describe('完整对局集成测试 v2', () => {
         isPure: false,
         isLuxury: false,
         luxuryCount: 0,
+        isQingYiSe: false,
+        isHunYiSe: false,
+        isZiYiSe: false,
         melds: [],
         pair: [{ id: '', type: FORTUNE_TYPE }, { id: '', type: FORTUNE_TYPE }],
         ...overrides,

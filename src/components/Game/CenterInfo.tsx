@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { TileType } from '../../engine/types';
 import { TileGraphics } from './TileGraphics';
 

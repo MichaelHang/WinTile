@@ -1,36 +1,53 @@
-// Reproduction test: mount the real <App/> and drive a full game, asserting
-// no React render error occurs (the "type is not an Object" crash).
-import { describe, it, expect, vi } from 'vitest';
-import { act } from 'react';
+import { describe, it, expect } from 'vitest';
+import { act, Component } from 'react';
+import type { ErrorInfo } from 'react';
 import { render } from '@testing-library/react';
 import App from '../../App';
 import { useGameStore } from '../../store/gameStore';
 import { resetTileIdCounter } from '../../engine/tile';
 
-// Capturing boundary to record the component stack + error.
-class CaptureBoundary extends (require('react').Component) {
-  constructor(props: any) {
+interface CaptureBoundaryProps {
+  onCapture: (error: Error, stack: string | undefined) => void;
+  children: React.ReactNode;
+}
+
+interface CaptureBoundaryState {
+  hasError: boolean;
+}
+
+class CaptureBoundary extends Component<CaptureBoundaryProps, CaptureBoundaryState> {
+  constructor(props: CaptureBoundaryProps) {
     super(props);
     this.state = { hasError: false };
   }
-  componentDidCatch(error: any, info: any) {
-    this.props.onCapture({ error, stack: info?.componentStack });
+
+  static getDerivedStateFromError(): CaptureBoundaryState {
+    return { hasError: true };
   }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    this.props.onCapture(error, info.componentStack);
+  }
+
   render() {
-    return (this.props as any).children;
+    if (this.state.hasError) {
+      return null;
+    }
+    return this.props.children;
   }
 }
 
 describe('App render crash reproduction', () => {
-  beforeEach(() => {
-    resetTileIdCounter();
-  });
-
   it('plays many rounds without a render exception', () => {
-    let captured: { error: any; stack: string } | null = null;
+    resetTileIdCounter();
+    let capturedError: Error | null = null;
+    let capturedStack: string | null = null;
 
     const { unmount } = render(
-      <CaptureBoundary onCapture={(c: any) => { captured = c; }}>
+      <CaptureBoundary onCapture={(error, stack) => {
+        capturedError = error;
+        capturedStack = stack;
+      }}>
         <App />
       </CaptureBoundary>
     );
@@ -41,7 +58,7 @@ describe('App render crash reproduction', () => {
       useGameStore.getState().newGame({ aiDifficulty: 'medium' });
     });
 
-    for (let step = 0; step < 4000 && !captured; step++) {
+    for (let step = 0; step < 4000 && !capturedError; step++) {
       const st = getState();
 
       if (st.phase === 'idle') {
@@ -58,7 +75,9 @@ describe('App render crash reproduction', () => {
       }
       if (st.phase === 'awaiting_discard') {
         const p = st.players[st.currentPlayerIndex];
-        act(() => useGameStore.getState().discardTile(p.hand[0].id));
+        if (p.hand.length > 0) {
+          act(() => useGameStore.getState().discardTile(p.hand[0].id));
+        }
         continue;
       }
       if (st.phase === 'awaiting_reactions') {
@@ -68,13 +87,12 @@ describe('App render crash reproduction', () => {
       break;
     }
 
-    if (captured) {
-      // eslint-disable-next-line no-console
-      console.log('CAPTURED ERROR:', captured.error?.message);
-      console.log('COMPONENT STACK:', captured.stack);
+    if (capturedError) {
+      console.log('CAPTURED ERROR:', capturedError.message);
+      console.log('COMPONENT STACK:', capturedStack);
     }
 
-    expect(captured).toBeNull();
+    expect(capturedError).toBeNull();
     unmount();
   });
 });

@@ -3,7 +3,7 @@ import {
   getPatternName,
   calculatePatternMultiplier,
 } from '../../engine/scoring';
-import type { GameState, Tile, PayoutEntry } from '../../engine/types';
+import type { GameState, Tile } from '../../engine/types';
 import { playClick } from '../../audio/soundManager';
 
 interface WinScreenProps {
@@ -20,10 +20,11 @@ export function WinScreen({ gameState, onNextRound, onNewGame }: WinScreenProps)
   const patternMult = winResult ? calculatePatternMultiplier(winResult) : 1;
   const baseScore = gameState.settings.baseScore;
   const isSelfDraw = winResult?.fromWall ?? true;
-  const discarderName =
-    !isSelfDraw && gameState.lastDiscarderIndex !== null
-      ? gameState.players[gameState.lastDiscarderIndex]?.name
-      : null;
+  const discarderName = (() => {
+    if (isSelfDraw || gameState.lastDiscarderIndex === null || gameState.lastDiscarderIndex === undefined) return null;
+    const idx = gameState.lastDiscarderIndex;
+    return gameState.players[idx]?.name ?? null;
+  })();
 
   const payouts = gameState.lastPayouts ?? [];
 

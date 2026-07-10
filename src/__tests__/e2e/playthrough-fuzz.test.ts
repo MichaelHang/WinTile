@@ -23,6 +23,7 @@ import {
   executeAnKong,
   executeHu,
   executePassAll,
+  executePlayerPass,
   advanceDealer,
 } from '../../engine/state';
 import { computeAIAction, decideReaction, clearShantenCache } from '../../engine/ai';
@@ -154,8 +155,12 @@ function autoPlayRound(state: GameState, diff: AIDifficulty, ctx: Ctx): GameStat
           next = doHu(state, state.currentPlayerIndex);
         } else if (action.kind === 'kong' && action.kongType === 'ankong') {
           next = executeAnKong(state, action.tileId || '');
-        } else {
+        } else if (action.kind === 'discard' || action.kind === 'caiPiao') {
           next = executeDiscard(state, action.tileId);
+        } else {
+          const p = state.players[state.currentPlayerIndex];
+          if (p.hand.length === 0) throw new Error(`awaiting_discard 但手牌为空，step=${steps}`);
+          next = executeDiscard(state, p.hand[p.hand.length - 1].id);
         }
         // 防死锁兜底：若引擎拒绝该操作（返回原引用），强制打出最后一张手牌
         if (next === state) {
@@ -183,7 +188,7 @@ function autoPlayRound(state: GameState, diff: AIDifficulty, ctx: Ctx): GameStat
     ctx.wins++;
     const w = state.lastWinnerIndex!;
     const p = state.players[w];
-    const fromDiscard = state.lastWinFromDiscard;
+    const fromDiscard = state.lastWinFromDiscard ?? false;
     const lastTile = fromDiscard ? state.lastDiscard!.tile : state.lastDrawnTile ?? p.hand[p.hand.length - 1];
     const winHand = fromDiscard ? [...p.hand, state.lastDiscard!.tile] : p.hand;
     const res = checkWin(winHand, p.melds, lastTile, state.fortuneTile, {

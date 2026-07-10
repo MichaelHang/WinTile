@@ -9,20 +9,12 @@ import {
   executeChi,
   executePong,
   executeMingKong,
-  executeAnKong,
-  executeJiaGang,
   executeHu,
-  executePlayerPass,
   executePassAll,
-  getAnKongOptions,
-  getJiaGangOptions,
-  checkWallExhaustion,
-  getNextPlayerIndex,
 } from '../../engine/state';
-import { decideReaction, computeAIAction, pickDiscard } from '../../engine/ai';
+import { decideReaction, pickDiscard } from '../../engine/ai';
 import { resetTileIdCounter } from '../../engine/tile';
-import { getAvailableReactions, getJiaGangOptions as _jg } from '../../engine/rules';
-import type { GameState, GameSettings, Tile } from '../../engine/types';
+import type { GameState, GameSettings } from '../../engine/types';
 
 const SETTINGS: GameSettings = {
   humanPlayerIndex: 0,
@@ -99,8 +91,9 @@ function driveGame(seed: number): GameState {
 
     if (state.phase === 'awaiting_discard') {
       const pi = state.currentPlayerIndex;
-      const tile = pickDiscard(state.players[pi].hand, state.players[pi].melds, state.fortuneTile, state);
-      state = executeDiscard(state, tile.id);
+      const player = state.players[pi];
+      const tileId = pickDiscard(player.hand, state.fortuneTile, player.melds.length, SETTINGS.aiDifficulty);
+      state = executeDiscard(state, tileId);
       validateTiles(state, ctx + ' after discard');
       continue;
     }

@@ -1,5 +1,4 @@
-import type { ReactNode } from 'react';
-import type { PlayerState, Tile, TileType } from '../../engine/types';
+import type { PlayerState, TileType } from '../../engine/types';
 import { PlayerHand } from './PlayerHand';
 import { MeldDisplay } from './MeldDisplay';
 import { DiscardPool } from './DiscardPool';
@@ -14,15 +13,6 @@ interface PlayerAreaProps {
   highlightedTileId?: string | null;
   onTileClick?: (tile: { id: string; type: TileType }) => void;
   isHuman: boolean;
-  canSelfHu?: boolean;
-  onSelfHu?: () => void;
-  canCaiPiao?: boolean;
-  onCaiPiao?: () => void;
-  anKongOptions?: Tile[];
-  jiaGangOptions?: { tile: Tile; meldIndex: number }[];
-  onAnKong?: (tileId: string) => void;
-  onJiaGang?: (tileId: string) => void;
-  actionSlot?: ReactNode; // reaction buttons (吃碰杠/过/胡) for bottom player
   // Animation state (from parent GameScreen)
   drawAnimTileId?: string; // Tile being drawn into this player's hand
   discardAnimTileId?: string; // Tile being discarded by this player
@@ -34,9 +24,6 @@ interface PlayerAreaProps {
 
 export function PlayerArea({
   player, position, isCurrentTurn, selectedTileId, onTileClick, isHuman,
-  canSelfHu, onSelfHu, canCaiPiao, onCaiPiao,
-  anKongOptions, jiaGangOptions, onAnKong, onJiaGang,
-  actionSlot,
   drawAnimTileId,
   discardAnimTileId,
   reactionAnimTileIds = [],
@@ -79,43 +66,6 @@ export function PlayerArea({
       {isCurrentTurn && <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#c9a94e', boxShadow: '0 0 6px #c9a94e' }} />}
     </div>
   );
-
-  // Self-turn action buttons (self-hu, ankong, jiagang) — rendered vertically on the right
-  const selfActionButtons = (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-      {canSelfHu && onSelfHu && (
-        <button onClick={onSelfHu} style={{
-          padding: '5px 14px', fontSize: '14px', fontWeight: 700, borderRadius: '5px',
-          background: '#c41e3a', color: '#fff', border: 'none', cursor: 'pointer',
-          boxShadow: '0 0 10px rgba(196,30,58,0.5)',
-        }}>自摸胡</button>
-      )}
-      {canCaiPiao && onCaiPiao && (
-        <button onClick={onCaiPiao} style={{
-          padding: '5px 14px', fontSize: '14px', fontWeight: 700, borderRadius: '5px',
-          background: '#9333ea', color: '#fff', border: 'none', cursor: 'pointer',
-          boxShadow: '0 0 10px rgba(147,51,234,0.5)',
-        }}>财飘</button>
-      )}
-      {anKongOptions && anKongOptions.length > 0 && onAnKong && anKongOptions.map((t, i) => (
-        <button key={`ak${i}`} onClick={() => onAnKong(t.id)} style={{
-          padding: '5px 12px', fontSize: '13px', fontWeight: 700, borderRadius: '5px',
-          background: '#b45309', color: '#fff', border: 'none', cursor: 'pointer',
-        }}>暗杠</button>
-      ))}
-      {jiaGangOptions && jiaGangOptions.length > 0 && onJiaGang && jiaGangOptions.map((opt, i) => (
-        <button key={`jg${i}`} onClick={() => onJiaGang(opt.tile.id)} style={{
-          padding: '5px 12px', fontSize: '13px', fontWeight: 700, borderRadius: '5px',
-          background: '#b45309', color: '#fff', border: 'none', cursor: 'pointer',
-        }}>加杠</button>
-      ))}
-    </div>
-  );
-
-  const hasSelfActions = (canSelfHu && onSelfHu) ||
-    (canCaiPiao && onCaiPiao) ||
-    (anKongOptions && anKongOptions.length > 0 && onAnKong) ||
-    (jiaGangOptions && jiaGangOptions.length > 0 && onJiaGang);
 
   // ---- BOTTOM (Human) ----
   // Layout: [discards above] then [melds | hand | buttons] in a row

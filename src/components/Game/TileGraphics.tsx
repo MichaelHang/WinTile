@@ -5,11 +5,7 @@ import { memo } from 'react';
 // Traditional Chinese mahjong tile designs
 // ============================================================
 
-// Circle colors
-const C_GREEN = '#1a9e3a';
-const C_BLUE = '#1a4db0';
-const C_RED = '#c41e1e';
-const C_WHITE = '#ffffff';
+
 
 // ============================================================
 // 筒子 (Tong / Circles) - Image-based rendering
@@ -49,55 +45,6 @@ function WanImage({ rank, width, height }: { rank: number; width: number; height
 // 条子 (Tiao / Bamboo Sticks) - Green bamboo + bird for 1
 // Traditional Chinese mahjong figure-8 bamboo shapes
 // ============================================================
-
-function renderBamboo({ cx, cy, w, h, isRed, isBlue }: {
-  cx: number; cy: number; w: number; h: number; isRed?: boolean; isBlue?: boolean;
-}) {
-  const stickColor = isRed ? '#c41e1e' : isBlue ? '#1a4db0' : '#1a7a2a';
-  // Half-width for the figure-8 arm spread
-  const armW = w * 0.55;
-  // Stroke width: thin enough that the two loops stay clearly separated
-  const strokeW = armW * 0.55;
-
-  return (
-    <g transform={`translate(${cx}, ${cy})`}>
-      {/* Figure-8 bamboo body: two symmetric arcs meeting at top and bottom */}
-      <path
-        d={`
-          M 0, ${-h / 2}
-          C ${armW}, ${-h * 0.67} ${armW}, ${-h * 0.17} 0, 0
-          C ${armW}, ${h * 0.17} ${armW}, ${h * 0.67} 0, ${h / 2}
-          M 0, ${-h / 2}
-          C -${armW}, ${-h * 0.67} -${armW}, ${-h * 0.17} 0, 0
-          C -${armW}, ${h * 0.17} -${armW}, ${h * 0.67} 0, ${h / 2}
-        `}
-        stroke={stickColor}
-        strokeWidth={strokeW}
-        strokeLinecap="round"
-        fill="none"
-      />
-      {/* Center white line (bamboo split) */}
-      <rect
-        x={-strokeW * 0.25}
-        y={-h / 2}
-        width={strokeW * 0.5}
-        height={h}
-        fill="#ffffff"
-        opacity={0.88}
-      />
-      {/* Horizontal notch at center (connection point emphasis) */}
-      <line
-        x1={-armW * 0.6}
-        y1={0}
-        x2={armW * 0.6}
-        y2={0}
-        stroke={stickColor}
-        strokeWidth={strokeW * 0.25}
-        opacity={0.35}
-      />
-    </g>
-  );
-}
 
 function TiaoSticks({ rank, width, height }: { rank: number; width: number; height: number }) {
   // 2-9条: 直接贴图
@@ -177,7 +124,7 @@ interface TileGraphicsProps {
   isFortune?: boolean;
 }
 
-function TileGraphicsInner({ suit, rank, width, height, honor, isFortune }: TileGraphicsProps) {
+function TileGraphicsInner({ suit, rank, width, height, honor }: TileGraphicsProps) {
   // Honor tile
   if (honor) {
     return (

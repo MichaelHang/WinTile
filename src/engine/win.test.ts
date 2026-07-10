@@ -3,24 +3,12 @@
 // 测试 AI 胡牌检测逻辑 — 重点：AI 自摸胡牌为什么从未触发？
 // ============================================================
 
-import { describe, it, expect } from 'vitest';
-import { checkWin, hasMinimumTai, isBaoTouState } from '@/engine/win';
-import { createTile, resetTileIdCounter } from '@/engine/tile';
-import type { Tile, TileType, Meld, WinResult } from '@/engine/types';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { checkWin, hasMinimumTai, isBaoTouState } from './win';
+import { createTile, resetTileIdCounter } from './tile';
+import type { Tile, TileType, Meld } from './types';
 
-// ---- Helper: build tile by code ----
-function tileOfCode(code: number): Tile {
-  const suits: TileType['suit'][] = ['wan', 'tiao', 'tong'];
-  const honors = ['east', 'south', 'west', 'north', 'zhong', 'fa', 'bai'];
-  if (code < 27) {
-    const sIdx = Math.floor(code / 9);
-    const rank = (code % 9) + 1;
-    return createTile({ suit: suits[sIdx] as 'wan' | 'tiao' | 'tong', rank: rank as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 });
-  } else {
-    const hIdx = code - 27;
-    return createTile({ honor: honors[hIdx] as 'east' | 'south' | 'west' | 'north' | 'zhong' | 'fa' | 'bai' });
-  }
-}
+
 
 // ---- Helper: create N tiles of same type ----
 function tilesOfType(type: TileType, n: number): Tile[] {
@@ -129,6 +117,7 @@ describe('checkWin - AI self-draw detection', () => {
       // Actually pair(1万+1万) already has 3 1万... so we can make meld(111万) and pair(2万+fortune)
       
       const result = checkWin(hand, [], hand[hand.length - 1], fortuneTile(), { fromDraw: true, fromDiscard: false });
+      expect(result).not.toBeNull();
       // This might not win - let me check manually
       // After removing fortune: 3x1万, 2x2万, 1x3万, 1x4万, 1x5万, 1x6万, 1x7万, 1x8万, 1x9万
       // Try pairs: 1万(3) → try pair=1万(2), remaining 1x1万, 2x2万, 1x3...9万
@@ -137,28 +126,7 @@ describe('checkWin - AI self-draw detection', () => {
       // Can we decompose? 3x1万 = triplet, 1x3...9万 → seq(345万), seq(678万), 1x9万 left → NO
       // This might actually fail. Let me try a guaranteed win.
       
-      // Guaranteed win: 1万2万3万(meld), 4万5万6万(meld), 7万8万9万(meld), 1万1万(pair), fortune
-      const hand2 = [
-        ...tilesOfType({ suit: 'wan' as const, rank: 1 }, 2),
-        ...tilesOfType({ suit: 'wan' as const, rank: 2 }, 1),
-        ...tilesOfType({ suit: 'wan' as const, rank: 3 }, 1),
-        ...tilesOfType({ suit: 'wan' as const, rank: 4 }, 1),
-        ...tilesOfType({ suit: 'wan' as const, rank: 5 }, 1),
-        ...tilesOfType({ suit: 'wan' as const, rank: 6 }, 1),
-        ...tilesOfType({ suit: 'wan' as const, rank: 7 }, 1),
-        ...tilesOfType({ suit: 'wan' as const, rank: 8 }, 1),
-        ...tilesOfType({ suit: 'wan' as const, rank: 9 }, 1),
-        createTile({ honor: 'bai' }),
-      ];
-      // = 2+1+1+1+1+1+1+1+1+1 = 10... too few. Need 14.
-      // 2+1+1+1+1+1+1+1+1+1 = 10. Need 4 more.
-      // Actually: 2 1万, 1 2万, 1 3万, 1 4万, 1 5万, 1 6万, 1 7万, 1 8万, 1 9万, 1 fortune = 10
-      // Need 14. Let me add: 1 4万, 1 5万, 1 6万, 1 fortune? No, already have fortune.
       
-      // Let me just do: 1万2万3万, 4万5万6万, 7万8万9万, 1万1万, fortune, fortune
-      // = 3+3+3+2+1+1 = 13... need 14. Add 1 more tile somewhere.
-      // 1万2万3万, 4万5万6万, 7万8万9万, 1万1万1万(meld), fortune = 3+3+3+3+1 = 13... no
-      // Let me just do a simple one that's guaranteed:
       // 3x1万, 3x4万, 3x7万, 3x1万(条), 1 fortune = 13... no, need 14
       // 3x1万, 3x4万, 3x7万, 3x1条, 2x fortune = 14
       // = meld(111万), meld(444万), meld(777万), meld(111条), pair(白+白) → YES
@@ -273,18 +241,7 @@ describe('checkWin - AI self-draw detection', () => {
     });
 
     it('win WITHOUT fortune → hasMinimumTai?', () => {
-      // 14 tile hand, no fortune: 3x1万, 3x2万, 3x3万, 3x4万, 2x5万
-      const hand = [
-        ...tilesOfType({ suit: 'wan' as const, rank: 1 }, 3),
-        ...tilesOfType({ suit: 'wan' as const, rank: 2 }, 3),
-        ...tilesOfType({ suit: 'wan' as const, rank: 3 }, 3),
-        ...tilesOfType({ suit: 'wan' as const, rank: 4 }, 3),
-        ...tilesOfType({ suit: 'wan' as const, rank: 5 }, 2),
-      ];
-      // 14 tiles, no fortune
       // Self-draw → hasMinimumTai should return true for self-draw
-      const lastTile = createTile({ suit: 'wan' as const, rank: 5 });
-      const fullHand = [...hand, lastTile]; // 15 tiles → too many!
       // Fix: hand should be 13 tiles before draw
       // 3x1万, 3x2万, 3x3万, 3x4万, 1x5万 = 13 tiles
       const hand13 = [
@@ -322,9 +279,6 @@ describe('checkWin - AI self-draw detection', () => {
         createTile({ honor: 'bai' }),
       ];
       // = 2+2+2+2+2+2+1+1 = 14 ✓
-      const lastTile = createTile({ suit: 'tiao' as const, rank: 1 });
-      const fullHand = [...hand, lastTile]; // 15... too many!
-      
       // Fix: need exactly 14 tiles for seven pairs
       // 2+2+2+2+2+2+1+1 = 14. Draw makes it 15.
       // So the initial hand should be 13 tiles, and we draw 1 to make 14.
@@ -394,11 +348,6 @@ describe('checkWin - AI self-draw detection', () => {
         ...tilesOfType({ suit: 'wan' as const, rank: 4 }, 3),
         ...fortuneTiles(2),
       ];
-      const lastTile = createTile({ honor: 'bai' });
-      const fullHand = [...hand, lastTile];
-      // Note: fullHand is 15 tiles - too many for a real hand
-      // This tests checkWin's behavior, not real gameplay
-
       // Actually, let me construct a proper 14-tile hand
       // 4 triplets + 2 fortune = 14 tiles (already complete, no need to draw)
       // This is the scenario: player already has 14 tiles with 2 fortune tiles
@@ -559,10 +508,6 @@ describe('checkWin - AI self-draw detection', () => {
         createTile({ honor: 'bai' }),
       ];
       // = 2+2+2+2+2+1 = 11... too few. Need 13.
-      // Add: 6万x2 → 2+2+2+2+2+1+2 = 13 ✓
-      const hand2 = [...hand, ...tilesOfType({ suit: 'wan' as const, rank: 6 }, 2)];
-      // Now draw 1万 → 3x1万, 2x2万, 2x3万, 2x4万, 2x5万, 1x fortune, 2x6万 = 14
-      // → triplet(111万) + seq(234万) + seq(456万) + pair(56万)? No...
       // Let me just test the simpler version
       
       // Simple guaranteed: 3x1万, 3x2万, 3x3万, 1x4万, 1x5万, 1x6万, fortune, draw 4万

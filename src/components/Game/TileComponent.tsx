@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import type { Tile, Suit } from '../../engine/types';
+import type { Tile } from '../../engine/types';
 import { TileGraphics } from './TileGraphics';
 
 interface TileComponentProps {
@@ -15,12 +15,6 @@ interface TileComponentProps {
   animating?: 'draw' | 'discard' | 'reaction' | 'win' | 'breathe' | 'land' | 'meld' | null;
   animDuration?: number;
 }
-
-const SUIT_INFO: Record<Suit, { color: string; light: string }> = {
-  wan: { color: '#1a3a5c', light: '#dce8f2' },
-  tiao: { color: '#1a5c2e', light: '#dcefe4' },
-  tong: { color: '#8b1a1a', light: '#f5e0e0' },
-};
 
 function getHonorDisplay(honor: string): {
   main: string; sub: string; color: string; bg: string;
@@ -123,10 +117,8 @@ function TileComponentInner({
           boxShadow: faceUp
             ? `${selected ? '0 0 0 2px #c9a94e, ' : ''}0 1.5px 3px ${shadowColor}, inset 0 1px 0 rgba(255,255,255,0.4)`
             : `0 1.5px 3px ${shadowColor}`,
-          // Set --rot CSS custom property for animations to use
-          '--rot': needsRotate ? `${rot}deg` : '0deg',
-          // Set --anim-duration so the speed setting actually drives animation length
-          '--anim-duration': `${animDuration}ms`,
+          ['--rot' as string]: needsRotate ? `${rot}deg` : '0deg',
+          ['--anim-duration' as string]: `${animDuration}ms`,
           // Only set inline transform when NOT animating (animations override it)
           ...(animating ? {} : { transform: combinedTransform || undefined }),
           transformOrigin: 'center center',
@@ -180,8 +172,8 @@ function TileComponentInner({
             ) : (
               /* Suit tiles: use SVG graphics */
               <TileGraphics
-                suit={type.suit}
-                rank={type.rank}
+                suit={(type as { suit: 'wan' | 'tiao' | 'tong' }).suit}
+                rank={(type as { rank: number }).rank}
                 width={s.w - 6}
                 height={s.h - 6}
               />
