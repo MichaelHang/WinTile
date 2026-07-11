@@ -7,16 +7,12 @@ const HUMAN_REACTION_TIMEOUT = 30000;
 
 interface CenterInfoProps {
   fortuneTile: TileType | null;
-  laoCount: number;
   wallRemaining: number;
-  dealerName: string;
-  currentPlayerName: string;
   /** Phase of the game */
   phase: string;
   /** Whether the human player has a pending reaction to decide on */
   humanHasPendingReaction: boolean;
   /** Whether an AI is currently "thinking" (deciding its move) */
-  aiThinking?: boolean;
 }
 
 /** Countdown hook for human reaction timer */
@@ -67,13 +63,9 @@ function useReactionCountdown(active: boolean, onExpire?: () => void) {
 
 export function CenterInfo({
   fortuneTile,
-  laoCount,
   wallRemaining,
-  dealerName,
-  currentPlayerName,
   phase,
   humanHasPendingReaction,
-  aiThinking = false,
 }: CenterInfoProps) {
   const centerTileW = 58;
   const centerTileH = 80;
@@ -128,17 +120,11 @@ export function CenterInfo({
 
       {/* Round Info */}
       <div className="text-center">
-        <div className="text-sm font-bold text-gold/80">
-          {laoCount}老庄
-        </div>
-        <div className="text-sm text-ivory-dark/70">
-          庄: {dealerName}
-        </div>
       </div>
 
       {/* Wall Counter */}
       <div className="text-center">
-        <div className="text-2xl font-bold text-ivory/60">
+        <div className="text-lg font-bold text-ivory/60">
           剩余 {wallRemaining}
         </div>
       </div>
@@ -147,19 +133,12 @@ export function CenterInfo({
       {showCountdown ? (
         <div className="text-center">
           <div
-            className="text-2xl font-bold transition-colors"
+            className="text-lg font-bold transition-colors"
             style={{
               color: seconds <= 5 ? '#e07a7a' : seconds <= 10 ? '#e8d48b' : '#c9a94e',
             }}
           >
             {seconds}s
-          </div>
-          <div className="text-[10px] text-ivory-dark/50">等待</div>
-        </div>
-      ) : aiThinking ? (
-        <div className="text-center">
-          <div className="ai-thinking-pulse text-[13px] text-gold/70 font-medium">
-            {currentPlayerName} 思考中…
           </div>
         </div>
       ) : null}

@@ -52,6 +52,7 @@ export function GameScreen({
 }: GameScreenProps) {
   const { settings } = useSettingsStore();
   const drawDuration = getAnimationDuration('draw', settings.animationSpeed);
+  const dealerName = gameState.players[gameState.dealerIndex]?.name || '';
   const discardDuration = getAnimationDuration('discard', settings.animationSpeed);
   const reactionDuration = getAnimationDuration('reaction', settings.animationSpeed);
 
@@ -148,6 +149,13 @@ export function GameScreen({
 
   const lastEvent = gameState.eventLog[gameState.eventLog.length - 1];
   const currentPlayerIndex = gameState.currentPlayerIndex;
+  const { players, phase, pendingReactions } = gameState;
+  const currentPlayerIsAI = !!players[currentPlayerIndex] && !players[currentPlayerIndex].isHuman;
+  const aiHasPendingReaction = pendingReactions.some((r) => r.playerIndex !== 0);
+  const humanHasPendingReaction = pendingReactions.some((r) => r.playerIndex === 0);
+  const isAwaitingReactions = phase === 'awaiting_reactions';
+  const aiThinking = (currentPlayerIsAI && (phase === 'player_turn' || phase === 'awaiting_discard')) || (isAwaitingReactions && aiHasPendingReaction && !humanHasPendingReaction);
+  const currentPlayerName = players[currentPlayerIndex]?.name || '';
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-[#0d1b2a]">
@@ -170,8 +178,8 @@ export function GameScreen({
 
         {/* Right: 第x老庄 + buttons */}
         <div className="flex items-center gap-3">
-          <span style={{ fontSize: '17px', lineHeight: 1, color: 'rgba(224,213,193,0.6)' }}>
-            第{gameState.laoCount}老庄
+          <span style={{ fontSize: '17px', lineHeight: 1, color: 'rgba(224,213,193,0.6)', whiteSpace: 'pre' }}>
+            庄:{dealerName}{"  "}第{gameState.laoCount}老庄
           </span>
           <button
             onClick={() => setShowSettings((v) => !v)}
@@ -300,7 +308,7 @@ export function GameScreen({
       >
         <span
           style={{
-            fontSize: '11px',
+            fontSize: '12px',
             color: 'rgba(224,213,193,0.6)',
             flex: 1,
             overflow: 'hidden',
@@ -310,7 +318,7 @@ export function GameScreen({
         >
           {lastEvent?.description || ''}
         </span>
-        <span style={{ fontSize: '11px', flexShrink: 0, marginLeft: 8 }}>
+        <span style={{ fontSize: '12px', flexShrink: 0, marginLeft: 8 }}>
           {isMyDiscard && (
             <span style={{ color: 'rgba(201,169,78,0.85)' }}>
               {selectedTileId ? '再点一次出牌' : '点牌选择，再点打出'}
@@ -322,6 +330,14 @@ export function GameScreen({
               style={{ color: 'rgba(201,169,78,0.9)' }}
             >
               ↓ 请选择操作
+            </span>
+          )}
+          {aiThinking && (
+            <span
+              className="ai-thinking-pulse"
+              style={{ color: 'rgba(201,169,78,0.9)' }}
+            >
+              {currentPlayerName} 思考中…
             </span>
           )}
         </span>

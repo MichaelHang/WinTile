@@ -45,18 +45,10 @@ export function GameTable({
   reactionDuration,
   lastDrawnTile,
 }: GameTableProps) {
-  const { players, phase, fortuneTile, laoCount, wall, dealerIndex, pendingReactions } = gameState;
+  const { players, phase, fortuneTile, wall, pendingReactions } = gameState;
 
   const isAwaitingReactions = phase === 'awaiting_reactions';
   const humanHasPendingReaction = pendingReactions.some((r) => r.playerIndex === 0);
-
-  // Whether an AI is currently "thinking" (deciding a move) — used for the hint
-  const currentPlayerIsAI =
-    !!players[currentPlayerIndex] && !players[currentPlayerIndex].isHuman;
-  const aiHasPendingReaction = pendingReactions.some((r) => r.playerIndex !== 0);
-  const aiThinking =
-    (currentPlayerIsAI && (phase === 'player_turn' || phase === 'awaiting_discard')) ||
-    (isAwaitingReactions && aiHasPendingReaction && !humanHasPendingReaction);
 
   // Animation props for each player
   const getAnimProps = (playerIndex: number) => {
@@ -110,14 +102,10 @@ export function GameTable({
         </div>
         <div className="flex-1 flex items-center justify-center">
           <CenterInfo 
-            fortuneTile={fortuneTile} 
-            laoCount={laoCount}
+            fortuneTile={fortuneTile}
             wallRemaining={wall.length} 
-            dealerName={players[dealerIndex]?.name || ''}
-            currentPlayerName={players[currentPlayerIndex]?.name || ''}
             phase={phase}
             humanHasPendingReaction={humanHasPendingReaction}
-            aiThinking={aiThinking}
           />
         </div>
         <div className="flex justify-center" style={{ width: '15%', height: '100%', overflow: 'visible' }}>
