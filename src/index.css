@@ -1,17 +1,6 @@
-@import "tailwindcss";
-
-@theme {
-  --color-felt: #1a6b3c;
-  --color-felt-dark: #145530;
-  --color-ivory: #f5f0e8;
-  --color-ivory-dark: #e8e0d0;
-  --color-gold: #c9a94e;
-  --color-gold-light: #e8d48b;
-  --color-red-china: #c41e3a;
-  --color-wood: #8b6914;
-  --color-wood-dark: #5c4510;
-  --font-display: 'Georgia', serif;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 * {
   margin: 0;
