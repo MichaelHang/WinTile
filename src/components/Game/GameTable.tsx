@@ -31,6 +31,10 @@ interface GameTableProps {
   discardDuration: number;
   reactionDuration: number;
   lastDrawnTile?: Tile | null;
+  // Auto-play
+  isTenpai?: boolean;
+  isAutoPlay?: boolean;
+  onToggleAutoPlay?: () => void;
 }
 
 export function GameTable({
@@ -44,6 +48,9 @@ export function GameTable({
   discardDuration,
   reactionDuration,
   lastDrawnTile,
+  isTenpai,
+  isAutoPlay,
+  onToggleAutoPlay,
 }: GameTableProps) {
   const { players, phase, fortuneTile, wall, pendingReactions } = gameState;
 
@@ -131,6 +138,9 @@ export function GameTable({
           onTileClick={(tile) => onTileClick(tile.id)}
           isBreathing={isBreathing(0)}
           drawnTileId={currentPlayerIndex === 0 ? lastDrawnTile?.id : undefined}
+          isTenpai={isTenpai}
+          isAutoPlay={isAutoPlay}
+          onToggleAutoPlay={onToggleAutoPlay}
           {...getAnimProps(0)}
         />
       </div>

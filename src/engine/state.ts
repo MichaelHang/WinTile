@@ -15,7 +15,6 @@ import { buildWall, drawTile, drawReplacement, dealTiles } from './wall';
 import { sortHand, tileTypeToCode, isFortuneTile } from './tile';
 import {
   getTilesOfType,
-  getAnKongOptions,
   getJiaGangOptions,
 } from './hand';
 import { checkWin, hasMinimumTai, canCaiPiao } from './win';
@@ -36,10 +35,10 @@ export function createInitialState(settings: GameSettings, dealerIndex?: number)
     wall: [],
     deadWall: [],
     players: [
-      createPlayer(0, '你', finalDealerIndex === 0, true, settings.initialScore),
-      createPlayer(1, 'AI 东', finalDealerIndex === 1, false, settings.initialScore),
-      createPlayer(2, 'AI 南', finalDealerIndex === 2, false, settings.initialScore),
-      createPlayer(3, 'AI 西', finalDealerIndex === 3, false, settings.initialScore),
+      createPlayer(0, settings.playerNames.human, finalDealerIndex === 0, true, settings.initialScore),
+      createPlayer(1, settings.playerNames.ai1, finalDealerIndex === 1, false, settings.initialScore),
+      createPlayer(2, settings.playerNames.ai2, finalDealerIndex === 2, false, settings.initialScore),
+      createPlayer(3, settings.playerNames.ai3, finalDealerIndex === 3, false, settings.initialScore),
     ],
     currentPlayerIndex: finalDealerIndex,
     phase: 'idle',
@@ -311,6 +310,81 @@ export function executeDiscard(state: GameState, tileId: string): GameState {
   return newState;
 }
 
+// ── Shared helper: apply a chi / pong / mingkong claim ──────────
+// Handles removing the claimed tile from the discarder's discards,
+// removing the matching hand tiles from the claimant's hand, adding
+// the meld, updating exposure counts, and building the common state
+// shape.  Callers (executeChi / executePong / executeMingKong) only
+// supply their specific validation + meld-construction logic.
+function applyClaimedDiscard(
+  state: GameState,
+  playerIndex: number,
+  handTilesToRemove: Tile[],
+  meld: Meld,
+  eventDescription: string
+): GameState {
+  const discarderIndex = state.lastDiscard!.playerIndex;
+  const discard = state.lastDiscard!.tile;
+
+  // Remove claimed tiles from hand
+  const player = state.players[playerIndex];
+  const newHand = sortHand(
+    player.hand.filter((t) => !handTilesToRemove.some((rt) => rt.id === t.id))
+  );
+
+  // Remove claimed tile from discarder's discards
+  const discarder = state.players[discarderIndex];
+  const discardIdx = discarder.discards.findIndex((d) => d.id === discard.id);
+  const newDiscards =
+    discardIdx >= 0
+      ? discarder.discards.filter((_, idx) => idx !== discardIdx)
+      : discarder.discards;
+
+  // Build players array
+  const players = [...state.players] as [
+    PlayerState,
+    PlayerState,
+    PlayerState,
+    PlayerState,
+  ];
+  players[playerIndex] = {
+    ...players[playerIndex],
+    hand: newHand,
+    melds: [...players[playerIndex].melds, meld],
+  };
+  players[discarderIndex] = {
+    ...players[discarderIndex],
+    discards: newDiscards,
+  };
+
+  // Update exposure counts for 三摊承包 tracking
+  const exposureCounts = { ...state.exposureCounts };
+  const key = `${discarderIndex}->${playerIndex}`;
+  exposureCounts[key] = (exposureCounts[key] || 0) + 1;
+
+  const event: GameEvent = {
+    kind: meld.kind === 'mingkong' ? 'kong' : meld.kind as GameEvent['kind'],
+    playerIndex,
+    tile: discard,
+    timestamp: Date.now(),
+    description: eventDescription,
+  };
+
+  return {
+    ...state,
+    players,
+    currentPlayerIndex: playerIndex,
+    phase: 'awaiting_discard',
+    lastDiscard: null,
+    pendingReactions: [],
+    responders: [],
+    eventLog: [...state.eventLog, event],
+    exposureCounts,
+    drewFromWall: false,
+    drewFromKong: false,
+  };
+}
+
 // Execute chi reaction
 export function executeChi(
   state: GameState,
@@ -327,71 +401,19 @@ export function executeChi(
   }
 
   const chiTiles = reaction.chiOptions[chiOptionIndex].tiles;
-  const discard = state.lastDiscard.tile;
-  const discarderIndex = state.lastDiscard.playerIndex;
-
-  // Create meld: 2 hand tiles + 1 claimed discard
   const meld: Meld = {
     kind: 'chi',
-    tiles: [discard, ...chiTiles],
-    discardFrom: discarderIndex,
+    tiles: [state.lastDiscard.tile, ...chiTiles],
+    discardFrom: state.lastDiscard.playerIndex,
   };
 
-  const player = state.players[playerIndex];
-  const newHand = sortHand(
-    player.hand.filter((t) => !chiTiles.some((ct) => ct.id === t.id))
-  );
-
-  // Remove the chi'd tile from the discarder's discards (it's now in the chi meld)
-  const discarder = state.players[discarderIndex];
-  const discardIdx = discarder.discards.findIndex((d) => d.id === discard.id);
-  const newDiscards = discardIdx >= 0
-    ? discarder.discards.filter((_, idx) => idx !== discardIdx)
-    : discarder.discards;
-
-  const players = [...state.players] as [
-    PlayerState,
-    PlayerState,
-    PlayerState,
-    PlayerState,
-  ];
-  players[playerIndex] = {
-    ...players[playerIndex],
-    hand: newHand,
-    melds: [...players[playerIndex].melds, meld],
-  };
-  // Update discarder's discards
-  players[discarderIndex] = {
-    ...players[discarderIndex],
-    discards: newDiscards,
-  };
-
-  // Update exposure counts
-  const exposureCounts = { ...state.exposureCounts };
-  const key = `${state.lastDiscard.playerIndex}->${playerIndex}`;
-  exposureCounts[key] = (exposureCounts[key] || 0) + 1;
-
-  const event: GameEvent = {
-    kind: 'chi',
+  return applyClaimedDiscard(
+    state,
     playerIndex,
-    tile: discard,
-    timestamp: Date.now(),
-    description: `${players[playerIndex].name} 吃`,
-  };
-
-  return {
-    ...state,
-    players,
-    currentPlayerIndex: playerIndex,
-    phase: 'awaiting_discard',
-    lastDiscard: null,
-    pendingReactions: [],
-    responders: [],
-    eventLog: [...state.eventLog, event],
-    exposureCounts,
-    drewFromWall: false,
-    drewFromKong: false,
-  };
+    chiTiles,
+    meld,
+    `${state.players[playerIndex].name} 吃`
+  );
 }
 
 // Execute pong reaction
@@ -403,71 +425,23 @@ export function executePong(
 
   const discard = state.lastDiscard.tile;
   const player = state.players[playerIndex];
-  const discarderIndex = state.lastDiscard.playerIndex;
 
-  // Get 2 matching tiles from hand
   const matchingTiles = getTilesOfType(player.hand, discard.type, 2);
   if (matchingTiles.length < 2) return state;
 
   const meld: Meld = {
     kind: 'pong',
     tiles: [discard, ...matchingTiles],
-    discardFrom: discarderIndex,
+    discardFrom: state.lastDiscard.playerIndex,
   };
 
-  const newHand = sortHand(
-    player.hand.filter((t) => !matchingTiles.some((mt) => mt.id === t.id))
-  );
-
-  // Remove the ponged tile from the discarder's discards (it's now in the ponger's meld)
-  const discarder = state.players[discarderIndex];
-  const discardIdx = discarder.discards.findIndex((d) => d.id === discard.id);
-  const newDiscards = discardIdx >= 0
-    ? discarder.discards.filter((_, idx) => idx !== discardIdx)
-    : discarder.discards;
-
-  const players = [...state.players] as [
-    PlayerState,
-    PlayerState,
-    PlayerState,
-    PlayerState,
-  ];
-  players[playerIndex] = {
-    ...players[playerIndex],
-    hand: newHand,
-    melds: [...players[playerIndex].melds, meld],
-  };
-  // Update discarder's discards
-  players[discarderIndex] = {
-    ...players[discarderIndex],
-    discards: newDiscards,
-  };
-
-  const exposureCounts = { ...state.exposureCounts };
-  const key = `${state.lastDiscard.playerIndex}->${playerIndex}`;
-  exposureCounts[key] = (exposureCounts[key] || 0) + 1;
-
-  const event: GameEvent = {
-    kind: 'pong',
+  return applyClaimedDiscard(
+    state,
     playerIndex,
-    tile: discard,
-    timestamp: Date.now(),
-    description: `${players[playerIndex].name} 碰`,
-  };
-
-  return {
-    ...state,
-    players,
-    currentPlayerIndex: playerIndex,
-    phase: 'awaiting_discard',
-    lastDiscard: null,
-    pendingReactions: [],
-    responders: [],
-    eventLog: [...state.eventLog, event],
-    exposureCounts,
-    drewFromWall: false,
-    drewFromKong: false,
-  };
+    matchingTiles,
+    meld,
+    `${state.players[playerIndex].name} 碰`
+  );
 }
 
 // Execute kong (明杠 from discard)
@@ -479,85 +453,66 @@ export function executeMingKong(
 
   const discard = state.lastDiscard.tile;
   const player = state.players[playerIndex];
-  const discarderIndex = state.lastDiscard.playerIndex;
+
   const matchingTiles = getTilesOfType(player.hand, discard.type, 3);
   if (matchingTiles.length < 3) return state;
 
   const meld: Meld = {
     kind: 'mingkong',
     tiles: [discard, ...matchingTiles],
-    discardFrom: discarderIndex,
+    discardFrom: state.lastDiscard.playerIndex,
   };
 
-  const newHand = sortHand(
-    player.hand.filter((t) => !matchingTiles.some((mt) => mt.id === t.id))
+  // Apply the common claim logic first
+  const claimed = applyClaimedDiscard(
+    state,
+    playerIndex,
+    matchingTiles,
+    meld,
+    `${state.players[playerIndex].name} 明杠`
   );
 
-  // Remove the kong'd tile from the discarder's discards (it's now in the kong meld)
-  const discarder = state.players[discarderIndex];
-  const discardIdx = discarder.discards.findIndex((d) => d.id === discard.id);
-  const newDiscards = discardIdx >= 0
-    ? discarder.discards.filter((_, idx) => idx !== discardIdx)
-    : discarder.discards;
-
-  // Draw replacement from dead wall
-  const replResult = drawReplacement(state.deadWall);
+  // Draw replacement from dead wall — on top of the claimed state
+  const replResult = drawReplacement(claimed.deadWall);
   if (!replResult) return state;
 
-  const players = [...state.players] as [
+  const newPlayers = [...claimed.players] as [
     PlayerState,
     PlayerState,
     PlayerState,
     PlayerState,
   ];
-  players[playerIndex] = {
-    ...players[playerIndex],
-    hand: sortHand([...newHand, replResult.tile]),
-    melds: [...players[playerIndex].melds, meld],
-  };
-  // Update discarder's discards
-  players[discarderIndex] = {
-    ...players[discarderIndex],
-    discards: newDiscards,
-  };
-
-  const event: GameEvent = {
-    kind: 'kong',
-    playerIndex,
-    tile: discard,
-    timestamp: Date.now(),
-    description: `${players[playerIndex].name} 明杠`,
+  newPlayers[playerIndex] = {
+    ...newPlayers[playerIndex],
+    hand: sortHand([...newPlayers[playerIndex].hand, replResult.tile]),
   };
 
   return {
-    ...state,
-    players,
+    ...claimed,
+    players: newPlayers,
     deadWall: replResult.remainingDeadWall,
-    currentPlayerIndex: playerIndex,
     phase: 'replacement_draw',
-    lastDiscard: null,
-    pendingReactions: [],
-    responders: [],
-    eventLog: [...state.eventLog, event],
-    lastDrawnTile: replResult.tile, // Track replacement tile for win detection
-    drewFromKong: true, // Mark as kong replacement draw
+    lastDrawnTile: replResult.tile,
+    drewFromKong: true,
   };
 }
 
 // Execute concealed kong (暗杠)
 export function executeAnKong(
   state: GameState,
-  _tileId: string
+  tileId: string
 ): GameState {
   const playerIndex = state.currentPlayerIndex;
   const player = state.players[playerIndex];
 
-  const anKongOptions = getAnKongOptions(player.hand);
-  if (anKongOptions.length === 0) return state;
+  // Find the tile the player selected in their hand
+  const selected = player.hand.find((t) => t.id === tileId);
+  if (!selected) return state;
 
-  // Find the 4 identical tiles
+  // Verify there are at least 4 identical tiles of that type
+  const targetCode = tileTypeToCode(selected.type);
   const targetTiles = player.hand.filter(
-    (t) => tileTypeToCode(t.type) === tileTypeToCode(anKongOptions[0].type)
+    (t) => tileTypeToCode(t.type) === targetCode
   );
   if (targetTiles.length < 4) return state;
 
@@ -607,15 +562,20 @@ export function executeAnKong(
 // Execute jia gang (加杠 - add to existing pong)
 export function executeJiaGang(
   state: GameState,
-  _tileId: string
+  tileId: string
 ): GameState {
   const playerIndex = state.currentPlayerIndex;
   const player = state.players[playerIndex];
 
-  const jiaGangOptions = getJiaGangOptions(player.hand, player.melds);
-  if (jiaGangOptions.length === 0) return state;
+  // Find the specific tile the player selected
+  const selected = player.hand.find((t) => t.id === tileId);
+  if (!selected) return state;
 
-  const option = jiaGangOptions[0];
+  const jiaGangOptions = getJiaGangOptions(player.hand, player.melds);
+  // Match the selected tile to a valid jia-gang option
+  const option = jiaGangOptions.find((opt) => opt.tile.id === tileId);
+  if (!option) return state;
+
   const meld = player.melds[option.meldIndex];
   const tile = option.tile;
 
@@ -791,6 +751,19 @@ export function executeHu(
     newPlayers[payout.toPlayer].score += payout.amount;
   }
 
+  // When winning from a discard, remove the claimed tile from the discarder's
+  // discards (matching the behavior of executeChi / executePong / executeMingKong).
+  if (!fromDraw && discarderIndex !== null) {
+    const discarder = newPlayers[discarderIndex];
+    const discardIdx = discarder.discards.findIndex((d) => d.id === lastTile.id);
+    if (discardIdx >= 0) {
+      newPlayers[discarderIndex] = {
+        ...discarder,
+        discards: discarder.discards.filter((_, idx) => idx !== discardIdx),
+      };
+    }
+  }
+
   const event: GameEvent = {
     kind: 'hu',
     playerIndex,
@@ -913,7 +886,7 @@ export function advanceDealer(
   let laoCount: number;
 
   if (winnerIndex === null) {
-    // Draw - no winner, dealer continues
+    // Draw (流局) — dealer continues, lao increases (same as dealer self-draw win).
     dealerIndex = state.dealerIndex;
     laoCount = Math.min(state.laoCount + 1, 3);
   } else if (state.players[winnerIndex].isDealer) {

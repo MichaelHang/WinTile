@@ -127,6 +127,13 @@ export interface GameEvent {
 
 export type AIDifficulty = 'easy' | 'medium' | 'hard';
 
+export interface PlayerNames {
+  human: string;
+  ai1: string;
+  ai2: string;
+  ai3: string;
+}
+
 export interface GameSettings {
   humanPlayerIndex: number; // Always 0
   aiDifficulty: AIDifficulty;
@@ -134,6 +141,7 @@ export interface GameSettings {
   baseScore: number; // Default 10, range 1-20
   initialScore: number; // Default 1000
   soundEnabled: boolean;
+  playerNames: PlayerNames;
 }
 
 // === Complete Game State ===

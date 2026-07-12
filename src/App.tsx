@@ -3,12 +3,20 @@ import { useSettingsStore } from './store/settingsStore';
 import { useGameLoop } from './hooks/useGameLoop';
 import { useSoundEffects } from './hooks/useSoundEffects';
 import { usePlayerActions } from './hooks/usePlayerActions';
-import { useCallback } from 'react';
-import { StartScreen } from './components/Screens/StartScreen';
-import { WinScreen } from './components/Screens/WinScreen';
-import { DrawScreen } from './components/Screens/DrawScreen';
+import { useCallback, lazy, Suspense } from 'react';
 import { GameScreen } from './components/Screens/GameScreen';
 import './App.css';
+
+// Lazy-loaded screens — only fetched when their phase is active.
+const StartScreen = lazy(() =>
+  import('./components/Screens/StartScreen').then((m) => ({ default: m.StartScreen }))
+);
+const WinScreen = lazy(() =>
+  import('./components/Screens/WinScreen').then((m) => ({ default: m.WinScreen }))
+);
+const DrawScreen = lazy(() =>
+  import('./components/Screens/DrawScreen').then((m) => ({ default: m.DrawScreen }))
+);
 
 function App() {
   // Drive the game state machine (side-effect hook, no return value)
@@ -20,7 +28,11 @@ function App() {
   const { settings } = useSettingsStore();
 
   const gameState = useGameStore((s) => s.gameState);
+  const isAutoPlay = useGameStore((s) => s.isAutoPlay);
+  const toggleAutoPlay = useGameStore((s) => s.toggleAutoPlay);
   const newGame = useGameStore((s) => s.newGame);
+  const continueGame = useGameStore((s) => s.continueGame);
+  const hasSavedGame = useGameStore((s) => s.hasSavedGame);
   const nextRound = useGameStore((s) => s.nextRound);
   
   // New game with confirmation
@@ -33,22 +45,32 @@ function App() {
   // ── Start screen ──
   if (gameState.phase === 'idle') {
     return (
-      <StartScreen
-        onStart={(partialSettings) => newGame({ ...settings, ...partialSettings })}
-      />
+      <Suspense fallback={null}>
+        <StartScreen
+          onStart={(partialSettings) => newGame({ ...settings, ...partialSettings })}
+          onContinue={continueGame}
+          hasSavedGame={hasSavedGame}
+        />
+      </Suspense>
     );
   }
 
   // ── Win screen ──
   if (gameState.phase === 'declaring_win') {
     return (
-      <WinScreen gameState={gameState} onNextRound={nextRound} onNewGame={handleNewGame} />
+      <Suspense fallback={null}>
+        <WinScreen gameState={gameState} onNextRound={nextRound} onNewGame={handleNewGame} />
+      </Suspense>
     );
   }
 
   // ── Draw (流局) screen ──
   if (gameState.phase === 'round_over') {
-    return <DrawScreen gameState={gameState} onNextRound={nextRound} onNewGame={handleNewGame} />;
+    return (
+      <Suspense fallback={null}>
+        <DrawScreen gameState={gameState} onNextRound={nextRound} onNewGame={handleNewGame} />
+      </Suspense>
+    );
   }
 
   // ── Game screen ──
@@ -58,6 +80,9 @@ function App() {
       selectedTileId={player.selectedTileId}
       isMyDiscard={player.isMyDiscard}
       isMyReaction={player.isMyReaction}
+      isTenpai={player.isTenpai}
+      isAutoPlay={isAutoPlay}
+      onToggleAutoPlay={toggleAutoPlay}
       canSelfHu={player.canSelfHu}
       anKongOptions={player.anKongOptions}
       jiaGangOptions={player.jiaGangOptions}

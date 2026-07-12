@@ -83,44 +83,6 @@ HONORS.forEach((honor, hi) => {
 
 export const TOTAL_TILE_TYPES = 34;
 
-// === Scoring Tables ===
-
-// Pattern multiplier table
-export const PATTERN_MULTIPLIERS: Record<string, number> = {
-  basic: 1,
-  baoTou: 2, // 爆头
-  sevenPairs: 2, // 七对
-  gangKai: 2, // 杠开
-  caiPiao: 4, // 财飘
-  gangBao: 4, // 杠爆
-  luxurySevenPairs: 4, // 豪华七对
-  qingQiDui: 4, // 清七对 (no fortune)
-  doubleCaiPiao: 8, // 双财飘
-  doubleGangKai: 4, // 双杠开
-  gangPiao: 8, // 杠飘
-  doubleGangBao: 8, // 双杠爆
-  doubleLuxurySevenPairs: 8, // 双豪华七对
-  sevenGuest: 4, // 七客 (七对+爆头)
-  luxurySevenGuest: 8, // 豪华七客
-  tripleCaiPiao: 16, // 三财飘
-  tripleGangKai: 8, // 三杠开
-  tripleGangBao: 16, // 三杠爆
-  tripleLuxurySevenPairs: 16, // 三豪华七对
-  doubleLuxurySevenGuest: 16, // 双豪华七客
-  tripleLuxurySevenGuest: 32, // 三豪华七客
-  // 清一色系列
-  qingYiSe: 4, // 清一色
-  hunYiSe: 2, // 混一色
-  ziYiSe: 8, // 字一色
-  
-  // 组合牌型
-  qingYiSeBaoTou: 8, // 清一色 + 爆头
-  qingYiSeCaiPiao: 16, // 清一色 + 财飘
-  hunYiSeBaoTou: 4, // 混一色 + 爆头
-  
-  max: 256, // Cap
-};
-
 // Lao multiplier by consecutive dealer wins
 export function getLaoMultiplier(
   laoCount: number,

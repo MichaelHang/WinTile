@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { computeAIAction, decideReaction } from '../engine/ai';
+import { checkWin } from '../engine/win';
 import {
   executeDraw,
   executePassAll,
@@ -30,13 +31,18 @@ export function aiThinkDelay(): number {
  *
  * Watches `gameState.phase` and drives transitions:
  *   - player_turn       → execute draw, then schedule AI discard if it's AI's turn
- *   - replacement_draw   → transition to awaiting_discard, schedule AI discard if needed
+ *   - replacement_draw  → transition to awaiting_discard, schedule AI discard if needed
  *   - awaiting_reactions → if no human reaction pending, process AI reactions or auto-advance
  *
- * All writes go through the Zustand store. The hook returns nothing.
+ * Uses a ref to always have the latest state, so the effect doesn't re-fire on
+ * unrelated state updates (e.g. score changes during hu).
  */
 export function useGameLoop() {
   const gameState = useGameStore((s) => s.gameState);
+  const isAutoPlay = useGameStore((s) => s.isAutoPlay);
+  const gsRef = useRef(gameState);
+  gsRef.current = gameState;
+
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Cleanup on unmount
@@ -47,25 +53,22 @@ export function useGameLoop() {
   }, []);
 
   useEffect(() => {
-    const { phase, currentPlayerIndex, players, pendingReactions } = gameState;
+    const gs = gsRef.current;
+    const { phase, currentPlayerIndex, players, pendingReactions } = gs;
 
     // ---- REPLACEMENT DRAW: kong already drew tile, transition to discard ----
     if (phase === 'replacement_draw') {
       useGameStore.getState().setState({
-        gameState: { ...gameState, phase: 'awaiting_discard', drewFromWall: true },
+        gameState: { ...gs, phase: 'awaiting_discard', drewFromWall: true },
       });
-      // Note: do NOT schedule doAIDiscard here — the effect will re-run
-      // with phase='awaiting_discard' and handle it in the awaiting_discard block.
-      // Scheduling here would create a duplicate timer that gets cleared anyway.
       return;
     }
 
     // ---- PLAYER TURN: draw ----
     if (phase === 'player_turn') {
-      const next = executeDraw(gameState);
+      const next = executeDraw(gs);
       useGameStore.getState().setState({ gameState: next });
 
-      // Wall exhausted → round_over, let UI handle
       if (next.phase === 'round_over') return;
 
       if (!players[currentPlayerIndex].isHuman) {
@@ -76,7 +79,13 @@ export function useGameLoop() {
 
     // ---- AWAITING DISCARD: schedule AI discard if it's AI's turn ----
     if (phase === 'awaiting_discard') {
-      if (!players[currentPlayerIndex].isHuman && players[currentPlayerIndex].hand.length > 0) {
+      const isHuman = players[currentPlayerIndex]?.isHuman;
+
+      if (isHuman && isAutoPlay && gs.drewFromWall) {
+        // Auto-play: check self-hu → otherwise auto-discard the drawn tile.
+        // Delay matches AI think time so the human can see what's happening.
+        scheduleTimer(() => doAutoPlayDiscard(), aiThinkDelay());
+      } else if (!isHuman && players[currentPlayerIndex]?.hand.length > 0) {
         scheduleTimer(() => doAIDiscard(), aiThinkDelay());
       }
       return;
@@ -87,12 +96,13 @@ export function useGameLoop() {
       const hasHumanReaction = pendingReactions.some((r) => r.playerIndex === 0);
       const hasAIReaction = pendingReactions.some((r) => r.playerIndex !== 0);
 
-      if (hasHumanReaction) {
-        // Wait for human, but add timeout to prevent permanent hang
+      if (hasHumanReaction && isAutoPlay) {
+        // Auto-play: if human can hu on this discard → auto-hu, else auto-pass.
+        scheduleTimer(() => doAutoPlayReaction(), AUTO_ADVANCE_DELAY);
+      } else if (hasHumanReaction) {
         scheduleTimer(() => {
           const cur = useGameStore.getState().gameState;
           if (cur.phase !== 'awaiting_reactions') return;
-          // Auto-pass for human (removes all human reactions from pending in one call)
           const newState = executePlayerPass(cur, 0);
           useGameStore.getState().setState({ gameState: newState });
         }, HUMAN_REACTION_TIMEOUT);
@@ -103,12 +113,64 @@ export function useGameLoop() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState.phase, gameState.currentPlayerIndex, gameState.pendingReactions.length]);
+  }, [gameState.phase, gameState.currentPlayerIndex, gameState.pendingReactions.length, isAutoPlay]);
 
   // ── Timer helper ──────────────────────────────────────────
   function scheduleTimer(fn: () => void, delay: number) {
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(fn, delay);
+  }
+
+  // ── Auto-play: human's turn, auto-check self-hu or discard drawn tile ──
+  function doAutoPlayDiscard() {
+    const cur = useGameStore.getState().gameState;
+    if (cur.phase !== 'awaiting_discard' || cur.currentPlayerIndex !== 0) return;
+    if (!useGameStore.getState().isAutoPlay) return;
+
+    const human = cur.players[0];
+
+    // Check self-draw win
+    if (cur.drewFromWall && cur.fortuneTile) {
+      const lastTile = cur.lastDrawnTile ?? human.hand[human.hand.length - 1];
+      if (lastTile) {
+        const result = checkWin(human.hand, human.melds, lastTile, cur.fortuneTile, {
+          fromDraw: true,
+          fromDiscard: false,
+          drewFromKong: cur.drewFromKong,
+        });
+        if (result) {
+          useGameStore.getState().setState({ gameState: executeHu(cur, 0) });
+          return;
+        }
+      }
+    }
+
+    // Not a win → auto-discard the drawn tile
+    const drawnTile = cur.lastDrawnTile ?? human.hand[human.hand.length - 1];
+    if (drawnTile) {
+      useGameStore.getState().discardTile(drawnTile.id);
+    }
+  }
+
+  // ── Auto-play: human reaction, auto-hu if possible, otherwise auto-pass ──
+  function doAutoPlayReaction() {
+    const cur = useGameStore.getState().gameState;
+    if (cur.phase !== 'awaiting_reactions') return;
+    if (!useGameStore.getState().isAutoPlay) return;
+
+    const humanReactions = cur.pendingReactions.filter((r) => r.playerIndex === 0);
+    const canHu = humanReactions.some((r) => r.kind === 'hu');
+
+    if (canHu) {
+      useGameStore.getState().setState({ gameState: executeHu(cur, 0) });
+    } else {
+      // Auto-pass all human reactions
+      let newState = cur;
+      for (const _ of humanReactions) {
+        newState = executePlayerPass(newState, 0);
+      }
+      useGameStore.getState().setState({ gameState: newState });
+    }
   }
 
   // ── AI discard (player_turn or replacement_draw → awaiting_discard) ──
@@ -120,10 +182,8 @@ export function useGameLoop() {
     const action = computeAIAction(cur, cur.currentPlayerIndex, cur.settings.aiDifficulty);
 
     if (action.kind === 'hu') {
-      // AI self-draw win (including 爆头)
       useGameStore.getState().setState({ gameState: executeHu(cur, cur.currentPlayerIndex) });
     } else if (action.kind === 'caiPiao') {
-      // AI 财飘 - discard fortune tile
       const newState = executeCaiPiao(cur, action.tileId);
       useGameStore.getState().setState({ gameState: newState });
     } else if (action.kind === 'discard') {
@@ -144,7 +204,6 @@ export function useGameLoop() {
 
     const aiReactions = cur.pendingReactions.filter((r) => r.playerIndex !== 0);
 
-    // Collect non-pass decisions from all AI that can react
     const decisions: { playerIndex: number; action: AIAction }[] = [];
     for (const rx of aiReactions) {
       const action = decideReaction(cur, rx.playerIndex, cur.settings.aiDifficulty);
@@ -186,8 +245,8 @@ export function useGameLoop() {
       default:
         newState = state;
     }
-    // 防御：若操作无效（如杠后摸牌堆耗尽导致 executeMingKong 返回原状态），
-    // 该玩家放弃此反应，避免 useGameLoop 无限重试而死锁。
+    // Guard: if the operation was a no-op (e.g. kong failed because dead-wall
+    // was exhausted), pass this player to avoid an infinite retry / deadlock.
     if (newState === state) {
       newState = executePlayerPass(state, playerIndex);
     }

@@ -1,5 +1,7 @@
 import { create } from 'zustand';
-import type { GameState, GameSettings, AIDifficulty } from '../engine/types';
+import type { GameState, GameSettings } from '../engine/types';
+import { DEFAULT_SETTINGS, useSettingsStore } from './settingsStore';
+import { loadGameData, saveScoresAndWins, clearGameData } from './persistStore';
 import {
   createInitialState,
   startRound,
@@ -16,12 +18,35 @@ import {
   advanceDealer,
 } from '../engine/state';
 
+// Convert AppSettings to GameSettings
+function toGameSettings(settings: typeof DEFAULT_SETTINGS): GameSettings {
+  return {
+    humanPlayerIndex: 0,
+    aiDifficulty: settings.aiDifficulty,
+    animationSpeed: settings.animationSpeed,
+    baseScore: settings.baseScore,
+    initialScore: settings.initialScore,
+    soundEnabled: settings.soundEnabled,
+    playerNames: settings.playerNames,
+  };
+}
+
+// Helper to save current game state
+function saveGameState(state: GameState) {
+  const scores = state.players.map(p => p.score) as [number, number, number, number];
+  saveScoresAndWins(scores, state.winCounts, state.dealerIndex, state.laoCount);
+}
+
 interface GameStore {
   gameState: GameState;
   selectedTileId: string | null;
+  isAutoPlay: boolean;
+  hasSavedGame: boolean;
   setState: (partial: { gameState: GameState }) => void;
-  newGame: (settings?: Partial<GameSettings>) => void;
+  newGame: (settings?: Partial<typeof DEFAULT_SETTINGS>) => void;
+  continueGame: () => void;
   resetGame: () => void;
+  clearSave: () => void;
   nextRound: () => void;
   drawTile: () => void;
   discardTile: (tileId: string) => void;
@@ -34,40 +59,71 @@ interface GameStore {
   claimCaiPiao: (tileId: string) => void;
   passReaction: () => void;
   setSelectedTile: (tileId: string | null) => void;
+  toggleAutoPlay: () => void;
+  syncPlayerNames: () => void;
 }
 
-const defaultSettings: GameSettings = {
-  humanPlayerIndex: 0,
-  aiDifficulty: 'medium' as AIDifficulty,
-  animationSpeed: 'normal',
-  baseScore: 10,
-  initialScore: 1000,
-  soundEnabled: false,
-};
+// Check if there's saved game data
+const savedData = loadGameData();
+const hasSaved = savedData.lastSaved > 0;
 
 export const useGameStore = create<GameStore>((set, get) => ({
-  gameState: createInitialState(defaultSettings),
+  gameState: createInitialState(toGameSettings(DEFAULT_SETTINGS)),
   selectedTileId: null,
+  isAutoPlay: false,
+  hasSavedGame: hasSaved,
 
   setState: (partial) => set(partial),
 
-  newGame: (partialSettings?: Partial<GameSettings>) => {
-    const settings = { ...defaultSettings, ...partialSettings };
+  newGame: (partialSettings?: Partial<typeof DEFAULT_SETTINGS>) => {
+    const settings = { ...DEFAULT_SETTINGS, ...partialSettings };
     // Guard against NaN: ensure baseScore is always a valid number
     if (typeof settings.baseScore !== 'number' || isNaN(settings.baseScore)) {
-      settings.baseScore = defaultSettings.baseScore;
+      settings.baseScore = DEFAULT_SETTINGS.baseScore;
     }
     if (typeof settings.initialScore !== 'number' || isNaN(settings.initialScore)) {
-      settings.initialScore = defaultSettings.initialScore;
+      settings.initialScore = DEFAULT_SETTINGS.initialScore;
     }
-    const initial = createInitialState(settings);
+    const gameSettings = toGameSettings(settings);
+    const initial = createInitialState(gameSettings);
     let state = startRound(initial, Date.now());
     if (state.players[state.currentPlayerIndex].isHuman) {
       state = executeDraw(state);
     }
-    set({ gameState: state, selectedTileId: null });
+    set({ gameState: state, selectedTileId: null, isAutoPlay: false, hasSavedGame: true });
+    saveGameState(state);
   },
-  
+
+  // Continue from saved game
+  continueGame: () => {
+    const saved = loadGameData();
+    if (saved.lastSaved === 0) return;
+    
+    const { settings } = useSettingsStore.getState();
+    const gameSettings = toGameSettings(settings);
+    const initial = createInitialState(gameSettings);
+    
+    // Restore saved scores and win counts
+    const players = initial.players.map((p, i) => ({
+      ...p,
+      score: saved.playerScores[i],
+    })) as GameState['players'];
+    
+    const baseState: GameState = {
+      ...initial,
+      players,
+      winCounts: saved.winCounts,
+      dealerIndex: saved.dealerIndex,
+      laoCount: saved.laoCount,
+    };
+    
+    let state = startRound(baseState, Date.now());
+    if (state.players[state.currentPlayerIndex].isHuman) {
+      state = executeDraw(state);
+    }
+    set({ gameState: state, selectedTileId: null, isAutoPlay: false });
+  },
+
   // Reset with confirmation (preserves win counts)
   resetGame: () => {
     const cur = get().gameState;
@@ -79,7 +135,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (state.players[state.currentPlayerIndex].isHuman) {
       state = executeDraw(state);
     }
-    set({ gameState: state, selectedTileId: null });
+    set({ gameState: state, selectedTileId: null, isAutoPlay: false });
+    saveGameState(state);
+  },
+
+  // Clear saved game
+  clearSave: () => {
+    clearGameData();
+    set({ hasSavedGame: false });
   },
 
   nextRound: () => {
@@ -99,7 +162,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (state.players[state.currentPlayerIndex].isHuman) {
         state = executeDraw(state);
       }
-      set({ gameState: state, selectedTileId: null });
+      set({ gameState: state, selectedTileId: null, isAutoPlay: false });
+      saveGameState(state);
       return;
     }
     
@@ -125,7 +189,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (state.players[state.currentPlayerIndex].isHuman) {
         state = executeDraw(state);
       }
-      set({ gameState: state, selectedTileId: null });
+      set({ gameState: state, selectedTileId: null, isAutoPlay: false });
+      saveGameState(state);
       return;
     }
     
@@ -136,7 +201,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (state.players[state.currentPlayerIndex].isHuman) {
       state = executeDraw(state);
     }
-    set({ gameState: state, selectedTileId: null });
+    set({ gameState: state, selectedTileId: null, isAutoPlay: false });
+    saveGameState(state);
+  },
+
+  // Sync player names from settings to current game state
+  syncPlayerNames: () => {
+    const { gameState } = get();
+    const { settings } = useSettingsStore.getState();
+    const names = settings.playerNames;
+    
+    const players = gameState.players.map((p, i) => ({
+      ...p,
+      name: i === 0 ? names.human : i === 1 ? names.ai1 : i === 2 ? names.ai2 : names.ai3,
+    })) as GameState['players'];
+    
+    set({ gameState: { ...gameState, players } });
   },
 
   drawTile: () => {
@@ -149,7 +229,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   claimChi: (optionIndex: number) => {
     const state = executeChi(get().gameState, 0, optionIndex);
-    set({ gameState: state, selectedTileId: null });
+    set({ gameState: state, selectedTileId: null, isAutoPlay: false });
   },
 
   claimPong: () => {
@@ -163,7 +243,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     );
     if (kongReaction?.kongType === 'mingkong') {
       const next = executeMingKong(gameState, 0);
-      // 双保险：杠后摸牌堆耗尽时 executeMingKong 会返回原状态，此时自动转为「过」
       set({ gameState: next === gameState ? executePlayerPass(gameState, 0) : next, selectedTileId: null });
     }
   },
@@ -177,7 +256,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   claimHu: () => {
-    set({ gameState: executeHu(get().gameState, 0) });
+    const state = executeHu(get().gameState, 0);
+    set({ gameState: state });
+    saveGameState(state);
   },
 
   claimCaiPiao: (tileId: string) => {
@@ -185,11 +266,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   passReaction: () => {
-    // Only pass for the human player (index 0), not for AI
     set({ gameState: executePlayerPass(get().gameState, 0) });
   },
 
   setSelectedTile: (tileId: string | null) => {
     set({ selectedTileId: tileId });
+  },
+
+  toggleAutoPlay: () => {
+    set({ isAutoPlay: !get().isAutoPlay });
   },
 }));

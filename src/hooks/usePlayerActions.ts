@@ -2,7 +2,8 @@ import { useMemo, useCallback } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { checkWin, canCaiPiao } from '../engine/win';
 import { getAnKongOptions, getJiaGangOptions } from '../engine/hand';
-import { isFortuneTile } from '../engine/tile';
+import { isFortuneTile, tileTypeToCode, codeToTileType, createTile } from '../engine/tile';
+import { TOTAL_TILE_TYPES } from '../engine/constants';
 import type { Tile } from '../engine/types';
 
 /**
@@ -58,6 +59,42 @@ export function usePlayerActions() {
     return canCaiPiao(human.hand, human.melds, gameState.fortuneTile);
   }, [isMyDiscardPhase, gameState.fortuneTile, gameState.players[0].hand, gameState.players[0].melds]);
 
+  // ── Is human in tenpai? (for auto-play toggle) ────────────
+  // Uses checkWin to test every possible tile type.  More accurate than
+  // calculateShanten because it runs the full decomposition algorithm
+  // (which handles fortune-as-gap-filler for late-suit sequences etc.).
+  const isTenpai = useMemo(() => {
+    if (!gameState.fortuneTile) return false;
+    const human = gameState.players[0];
+    if (human.hand.length === 0) return false;
+
+    // During own discard phase, evaluate the 13-tile "base" hand (exclude
+    // the just-drawn tile).  Otherwise evaluate the hand as-is.
+    const handToCheck =
+      isMyDiscardPhase && gameState.lastDrawnTile
+        ? human.hand.filter((t) => t.id !== gameState.lastDrawnTile?.id)
+        : human.hand;
+    if (handToCheck.length === 0) return false;
+
+    const fortuneCode = tileTypeToCode(gameState.fortuneTile);
+
+    // Try every possible tile type as the winning draw
+    for (let code = 0; code < TOTAL_TILE_TYPES; code++) {
+      if (code === fortuneCode) continue;
+      const testType = codeToTileType(code);
+      const testTile = createTile(testType);
+      const result = checkWin(
+        [...handToCheck, testTile],
+        human.melds,
+        testTile,
+        gameState.fortuneTile,
+        { fromDraw: true, fromDiscard: false }
+      );
+      if (result) return true;
+    }
+    return false;
+  }, [isMyDiscardPhase, gameState.fortuneTile, gameState.lastDrawnTile, gameState.players[0].hand, gameState.players[0].melds]);
+
   // ── Ankong / Jiagang options ─────────────────────────────
   const anKongOptions = useMemo<Tile[]>(() => {
     if (!isMyDiscardPhase) return [];
@@ -94,7 +131,7 @@ export function usePlayerActions() {
     if (fortuneTile) {
       claimCaiPiao(fortuneTile.id);
     }
-  }, [gameState.players, claimCaiPiao]);
+  }, [gameState.players[0].hand, claimCaiPiao]);
 
   const handleAnKong = useCallback(
     (tileId: string) => claimAnKong(tileId),
@@ -111,6 +148,7 @@ export function usePlayerActions() {
     selectedTileId,
     isMyDiscard,
     isMyReaction,
+    isTenpai,
     canSelfHu,
     canCaiPiao: canCaiPiaoFlag,
     anKongOptions,

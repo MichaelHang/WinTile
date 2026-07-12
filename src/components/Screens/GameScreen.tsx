@@ -11,6 +11,9 @@ interface GameScreenProps {
   selectedTileId: string | null;
   isMyDiscard: boolean;
   isMyReaction: boolean;
+  isTenpai?: boolean;
+  isAutoPlay?: boolean;
+  onToggleAutoPlay?: () => void;
   canSelfHu: boolean;
   canCaiPiao?: boolean;
   anKongOptions: Tile[];
@@ -34,6 +37,9 @@ export function GameScreen({
   selectedTileId,
   isMyDiscard,
   isMyReaction,
+  isTenpai,
+  isAutoPlay,
+  onToggleAutoPlay,
   canSelfHu,
   canCaiPiao,
   anKongOptions,
@@ -292,6 +298,9 @@ export function GameScreen({
           discardDuration={discardDuration}
           reactionDuration={reactionDuration}
           lastDrawnTile={gameState.lastDrawnTile}
+          isTenpai={isTenpai}
+          isAutoPlay={isAutoPlay}
+          onToggleAutoPlay={onToggleAutoPlay}
         />
       </div>
 

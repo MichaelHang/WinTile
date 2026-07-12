@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useSettingsStore } from '../store/settingsStore';
+import { useGameStore } from '../store/gameStore';
 
 const DIFFICULTY_OPTIONS: { value: 'easy' | 'medium' | 'hard'; label: string; desc: string }[] = [
   { value: 'easy', label: '简单', desc: '新手友好，AI 较少主动进攻' },
@@ -14,6 +16,35 @@ const ANIM_OPTIONS: { value: 'slow' | 'normal' | 'fast'; label: string }[] = [
 
 export function SettingsPanel() {
   const { settings, update } = useSettingsStore();
+  const syncPlayerNames = useGameStore((s) => s.syncPlayerNames);
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+
+  const startEdit = (key: string, value: string) => {
+    setEditingName(key);
+    setEditValue(value);
+  };
+
+  const confirmEdit = () => {
+    if (editingName && editValue.trim()) {
+      update({
+        playerNames: {
+          ...settings.playerNames,
+          [editingName]: editValue.trim().slice(0, 8), // 最长8字符
+        },
+      });
+      // 同步更新当前游戏的玩家名字
+      syncPlayerNames();
+    }
+    setEditingName(null);
+  };
+
+  const nameFields = [
+    { key: 'human', label: '你的名字', color: '#c9a94e' },
+    { key: 'ai1', label: 'AI 东', color: '#7eb8da' },
+    { key: 'ai2', label: 'AI 南', color: '#7eb8da' },
+    { key: 'ai3', label: 'AI 西', color: '#7eb8da' },
+  ];
 
   return (
     <div style={{
@@ -145,6 +176,7 @@ export function SettingsPanel() {
           >+</button>
         </div>
       </div>
+
       {/* Initial score */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <label style={{ fontSize: '10px', color: '#c9a94e', letterSpacing: '0.08em' }}>初始积分</label>
@@ -170,6 +202,58 @@ export function SettingsPanel() {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
           >+</button>
+        </div>
+      </div>
+
+      {/* Player Names - spans full width */}
+      <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <label style={{ fontSize: '10px', color: '#c9a94e', letterSpacing: '0.08em' }}>玩家昵称</label>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+          {nameFields.map(({ key, label, color }) => (
+            <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ fontSize: '10px', color: 'rgba(224,213,193,0.5)' }}>{label}</span>
+              {editingName === key ? (
+                <input
+                  type="text"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onBlur={confirmEdit}
+                  onKeyDown={(e) => e.key === 'Enter' && confirmEdit()}
+                  maxLength={8}
+                  autoFocus
+                  style={{
+                    width: '100%',
+                    padding: '4px 6px',
+                    fontSize: '12px',
+                    borderRadius: '4px',
+                    background: 'rgba(255,255,255,0.1)',
+                    color: '#fff',
+                    border: `1px solid ${color}`,
+                    outline: 'none',
+                  }}
+                />
+              ) : (
+                <div
+                  onClick={() => startEdit(key, settings.playerNames[key as keyof typeof settings.playerNames])}
+                  style={{
+                    padding: '4px 6px',
+                    fontSize: '12px',
+                    borderRadius: '4px',
+                    background: 'rgba(255,255,255,0.05)',
+                    color: color,
+                    border: '1px solid rgba(201,169,78,0.15)',
+                    cursor: 'pointer',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                  title="点击编辑"
+                >
+                  {settings.playerNames[key as keyof typeof settings.playerNames]}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AIDifficulty } from '../engine/types';
+import type { AIDifficulty, PlayerNames } from '../engine/types';
 
 // ============================================================
 // Persistent settings stored in localStorage.
@@ -12,7 +12,24 @@ export interface AppSettings {
   animationSpeed: 'slow' | 'normal' | 'fast';
   baseScore: number;
   initialScore: number;
+  playerNames: PlayerNames;
 }
+
+// Canonical default settings — single source of truth.
+// Import this wherever you need defaults (e.g. gameStore, server).
+export const DEFAULT_SETTINGS: AppSettings = {
+  aiDifficulty: 'medium',
+  soundEnabled: false,
+  animationSpeed: 'normal',
+  baseScore: 10,
+  initialScore: 1000,
+  playerNames: {
+    human: '你',
+    ai1: 'AI 东',
+    ai2: 'AI 南',
+    ai3: 'AI 西',
+  },
+};
 
 const STORAGE_KEY = 'wintile_app_settings';
 
@@ -22,23 +39,23 @@ function loadSettings(): AppSettings {
     if (raw) {
       const parsed = JSON.parse(raw);
       return {
-        aiDifficulty: parsed.aiDifficulty || 'medium',
-        soundEnabled: parsed.soundEnabled ?? false,
-        animationSpeed: parsed.animationSpeed || 'normal',
-        baseScore: parsed.baseScore ?? 10,
-        initialScore: parsed.initialScore ?? 1000,
+        aiDifficulty: parsed.aiDifficulty || DEFAULT_SETTINGS.aiDifficulty,
+        soundEnabled: parsed.soundEnabled ?? DEFAULT_SETTINGS.soundEnabled,
+        animationSpeed: parsed.animationSpeed || DEFAULT_SETTINGS.animationSpeed,
+        baseScore: parsed.baseScore ?? DEFAULT_SETTINGS.baseScore,
+        initialScore: parsed.initialScore ?? DEFAULT_SETTINGS.initialScore,
+        playerNames: {
+          human: parsed.playerNames?.human || DEFAULT_SETTINGS.playerNames.human,
+          ai1: parsed.playerNames?.ai1 || DEFAULT_SETTINGS.playerNames.ai1,
+          ai2: parsed.playerNames?.ai2 || DEFAULT_SETTINGS.playerNames.ai2,
+          ai3: parsed.playerNames?.ai3 || DEFAULT_SETTINGS.playerNames.ai3,
+        },
       };
     }
   } catch {
     // ignore
   }
-  return {
-    aiDifficulty: 'medium',
-    soundEnabled: false,
-    animationSpeed: 'normal',
-    baseScore: 10,
-    initialScore: 1000,
-  };
+  return { ...DEFAULT_SETTINGS };
 }
 
 function saveSettings(s: AppSettings) {

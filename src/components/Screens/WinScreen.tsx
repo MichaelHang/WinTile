@@ -46,12 +46,6 @@ export function WinScreen({ gameState, onNextRound, onNewGame }: WinScreenProps)
       <div className="relative z-10 flex flex-col items-center gap-5 w-full max-w-2xl px-6">
         {/* Title */}
         <div className="text-center">
-          <div
-            className="text-5xl mb-2"
-            style={{ fontFamily: "'Noto Serif SC', serif" }}
-          >
-            {winner.isHuman ? '🎉' : '😢'}
-          </div>
           <h1
             className="text-3xl font-bold mb-1"
             style={{
@@ -124,6 +118,7 @@ export function WinScreen({ gameState, onNextRound, onNewGame }: WinScreenProps)
                     >
                       {p.name}
                       {p.isDealer && ' (庄)'}
+{' '}<span style={{ fontSize: '12px', color: 'rgba(224,213,193,0.4)' }}>{gameState.winCounts[i]}胜</span>
                     </span>
                     {playerPayouts.length > 0 && (
                       <span
@@ -187,37 +182,6 @@ export function WinScreen({ gameState, onNextRound, onNewGame }: WinScreenProps)
           </div>
         )}
 
-        {/* Win Statistics */}
-        <div
-          className="w-full max-w-md p-4 rounded-xl"
-          style={{
-            background: 'rgba(10,22,40,0.6)',
-            border: '1px solid rgba(201,169,78,0.1)',
-          }}
-        >
-          <div className="text-center mb-3" style={{ fontSize: '14px', color: 'rgba(224,213,193,0.6)' }}>
-            获胜统计
-          </div>
-          <div className="grid grid-cols-4 gap-2">
-            {gameState.players.map((p, i) => (
-              <div key={i} className="text-center">
-                <div style={{ fontSize: '12px', color: 'rgba(224,213,193,0.5)', marginBottom: 4 }}>
-                  {p.name}
-                </div>
-                <div style={{ 
-                  fontSize: '24px', 
-                  fontWeight: 700, 
-                  color: i === 0 ? '#e8d48b' : 'rgba(224,213,193,0.8)',
-                }}>
-                  {gameState.winCounts[i]}
-                </div>
-                <div style={{ fontSize: '10px', color: 'rgba(224,213,193,0.4)' }}>
-                  胜
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
 
         {/* Buttons */}
         <div className="flex gap-3 mt-2">

@@ -2,7 +2,7 @@
 // Hangzhou Mahjong (杭州麻将) - AI Strategy Engine
 // ============================================================
 
-import type { Tile, TileType, GameState, AIAction, Suit } from './types';
+import type { Tile, TileType, GameState, AIAction, Suit, Meld } from './types';
 import { tileTypeToCode, isSameType, isSuitTile, isFortuneTile, createTile, codeToTileType } from './tile';
 import { handToCounts, getChiOptions, canPong, canMingKong, getAnKongOptions } from './hand';
 import { checkWin, hasMinimumTai, canCaiPiao } from './win';
@@ -38,10 +38,16 @@ function calculateShantenCached(
   const result = calculateShanten(hand, meldCount, fortuneType);
   shantenCache.set(cacheKey, result.shanten);
   
-  // Limit cache size
+  // Limit cache size — evict oldest 10% in one batch instead of
+  // deleting one entry per insertion (which is near-0 LRU and wasteful).
   if (shantenCache.size > 10000) {
-    const firstKey = shantenCache.keys().next().value;
-    if (firstKey) shantenCache.delete(firstKey);
+    const evictCount = Math.ceil(shantenCache.size * 0.1);
+    const iter = shantenCache.keys();
+    for (let i = 0; i < evictCount; i++) {
+      const entry = iter.next();
+      if (entry.done) break;
+      shantenCache.delete(entry.value);
+    }
   }
   
   return result;
@@ -113,60 +119,61 @@ function getTileSafetyScore(
 function countTenpaiWaitingTiles(
   hand: Tile[],
   discardTileId: string,
-  meldCount: number,
+  melds: Meld[],
   fortuneType: TileType | null
 ): number {
   const handWithout = hand.filter(t => t.id !== discardTileId);
   if (handWithout.length === 0) return 0;
-  
+
+  const meldCount = melds.length;
   const shanten = calculateShantenCached(handWithout, meldCount, fortuneType).shanten;
   if (shanten !== 0) return 0; // 不是听牌状态
-  
+
   let waitingCount = 0;
   const counts = handToCounts(handWithout);
-  
+
   // 检查每种可能的牌是否能胡
   for (let code = 0; code < TOTAL_TILE_TYPES; code++) {
     if (fortuneType && code === tileTypeToCode(fortuneType)) continue;
     if (counts[code] >= 4) continue;
-    
+
     const tile = codeToTileType(code);
     const newTile = createTile(tile);
     const newHand = [...handWithout, newTile];
-    
-    const winResult = checkWin(newHand, [], newTile, fortuneType, {
+
+    const winResult = checkWin(newHand, melds, newTile, fortuneType, {
       fromDraw: true,
       fromDiscard: false
     });
-    
+
     if (winResult) {
       waitingCount += 4 - counts[code];
     }
   }
-  
+
   return waitingCount;
 }
 
 // 选择最佳听牌（进张最多的打法）
 function findBestTenpaiDiscard(
   hand: Tile[],
-  meldCount: number,
+  melds: Meld[],
   fortuneType: TileType | null
 ): { tileId: string; waitingCount: number } | null {
   const nonFortuneTiles = hand.filter(t => !isFortuneTile(t.type));
   if (nonFortuneTiles.length === 0) return null;
-  
+
   let bestTile = nonFortuneTiles[0];
   let bestWaiting = 0;
-  
+
   for (const tile of nonFortuneTiles) {
-    const waiting = countTenpaiWaitingTiles(hand, tile.id, meldCount, fortuneType);
+    const waiting = countTenpaiWaitingTiles(hand, tile.id, melds, fortuneType);
     if (waiting > bestWaiting) {
       bestWaiting = waiting;
       bestTile = tile;
     }
   }
-  
+
   return bestWaiting > 0 ? { tileId: bestTile.id, waitingCount: bestWaiting } : null;
 }
 
@@ -364,11 +371,13 @@ function calcSevenPairsShanten(counts: number[], fortuneCount: number): number {
 export function pickDiscard(
   hand: Tile[],
   fortuneType: TileType | null,
-  meldCount: number,
+  melds: Meld[],
   difficulty: 'easy' | 'medium' | 'hard',
   discardHistory?: { tile: TileType; playerIndex: number }[]
 ): string {
   if (hand.length === 0) return '';
+
+  const meldCount = melds.length;
 
   // Never discard fortune tiles if we have alternatives
   const nonFortuneTiles = hand.filter((t) => !isFortuneTile(t.type));
@@ -481,7 +490,7 @@ export function pickDiscard(
     
     // If tenpai, use tenpai selection to find best waiting tiles
     if (currentShanten === 0) {
-      const bestTenpai = findBestTenpaiDiscard(hand, meldCount, fortuneType);
+      const bestTenpai = findBestTenpaiDiscard(hand, melds, fortuneType);
       if (bestTenpai) {
         return bestTenpai.tileId;
       }
@@ -820,7 +829,7 @@ export function computeAIAction(
     const tileId = pickDiscard(
       player.hand,
       state.fortuneTile,
-      player.melds.length,
+      player.melds,
       difficulty,
       state.currentRoundDiscards
     );

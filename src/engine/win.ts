@@ -25,9 +25,7 @@ export function checkWin(
   }
 ): WinResult | null {
   const totalTilesInHand = hand.length;
-  const existingMeldCount = melds.reduce((sum) => {
-    return sum + 1;
-  }, 0);
+  const existingMeldCount = melds.length;
 
   const remainingMeldsNeeded = 4 - existingMeldCount;
 
@@ -63,6 +61,21 @@ export function checkWin(
   }
 
   return null;
+}
+
+// Helper: if the player was already in 爆头 state BEFORE drawing the last tile,
+// then the win is a 爆头 regardless of other conditions.
+function checkIfWasBaoTouState(
+  isBaoTou: boolean,
+  fromDraw: boolean,
+  hand: Tile[],
+  lastTile: Tile,
+  existingMelds: Meld[],
+  fortuneType: TileType
+): boolean {
+  if (isBaoTou || !fromDraw) return isBaoTou;
+  const prevHand = hand.filter((t) => t.id !== lastTile.id);
+  return isBaoTouState(prevHand, existingMelds, fortuneType);
 }
 
 // Count kongs in existing melds and determine gangKai
@@ -150,21 +163,13 @@ function checkStandardForm(
           }
           // Most general check for 2+ fortunes: was the player in 爆头 state BEFORE drawing?
           // If so, any draw is 爆头.
-          if (!isBaoTou && options.fromDraw) {
-            const prevHand = hand.filter((t) => t.id !== _lastTile.id);
-            if (isBaoTouState(prevHand, existingMelds, fortuneType)) {
-              isBaoTou = true;
-            }
-          }
+          isBaoTou = checkIfWasBaoTouState(isBaoTou, options.fromDraw, hand, _lastTile, existingMelds, fortuneType);
         }
 
         // 1 fortune case: was the player in 爆头 state BEFORE drawing?
         // (This path was previously missed — only 2+ fortunes had the check above.)
-        if (!isBaoTou && options.fromDraw && actualFortuneCount === 1) {
-          const prevHand = hand.filter((t) => t.id !== _lastTile.id);
-          if (isBaoTouState(prevHand, existingMelds, fortuneType)) {
-            isBaoTou = true;
-          }
+        if (actualFortuneCount === 1) {
+          isBaoTou = checkIfWasBaoTouState(isBaoTou, options.fromDraw, hand, _lastTile, existingMelds, fortuneType);
         }
 
         const colorPatterns = detectColorPatterns(hand, existingMelds, fortuneType);
@@ -204,13 +209,8 @@ function checkStandardForm(
         // 爆头: exactly 1 fortune tile forms the pair with a regular tile,
         // and all other tiles form 4 melds.
         let isBaoTou = actualFortuneCount === 1;
-        // Also check: was in 爆头 state before drawing (for 2+ fortune tiles)
-        if (!isBaoTou && options.fromDraw) {
-          const prevHand = hand.filter((t) => t.id !== _lastTile.id);
-          if (isBaoTouState(prevHand, existingMelds, fortuneType)) {
-            isBaoTou = true;
-          }
-        }
+        // Also check if was in 爆头 state before drawing (for 2+ fortune tiles)
+        isBaoTou = checkIfWasBaoTouState(isBaoTou, options.fromDraw, hand, _lastTile, existingMelds, fortuneType);
         const colorPatterns = detectColorPatterns(hand, existingMelds, fortuneType);
         return buildWinResult(
           hand,
@@ -256,12 +256,7 @@ function checkStandardForm(
             isBaoTou = true;
           }
           // Method 2: was in 爆头 state before drawing
-          if (!isBaoTou) {
-            const prevHand = hand.filter((t) => t.id !== _lastTile.id);
-            if (isBaoTouState(prevHand, existingMelds, fortuneType)) {
-              isBaoTou = true;
-            }
-          }
+          isBaoTou = checkIfWasBaoTouState(isBaoTou, options.fromDraw, hand, _lastTile, existingMelds, fortuneType);
         }
         return buildWinResult(
           hand,
@@ -378,6 +373,68 @@ function tryDecomposeStandard(
           counts[idx]++;
           break; // Only need to try once since positions are symmetric with fortunes
         }
+      }
+    }
+  } else if (i < 27 && fortuneCount > 0) {
+    // === LATE-SUIT SEQUENCES WITH FORTUNE GAP-FILL ===
+    // Position i is near the end of a suit (pos 7 or 8, e.g. 8筒 or 9筒) and
+    // canStartSequence(i) is false.  A valid sequence may still start 1–2
+    // positions earlier with fortune(s) filling the missing tiles.
+    //
+    // Example: hand has 8筒 9筒 + 1 fortune → sequence 7-8-9 with fortune as 7筒.
+    // i=25 (8筒) can't start a seq, but a seq starting at 24 (7筒) works.
+    const posInSuit = i % 9;
+
+    // Shift start back by 1 (i → i-1).  Only possible when posInSuit ≤ 7.
+    if (posInSuit <= 7) {
+      const s = i - 1; // new start, guaranteed s % 9 ≤ 6
+      // Count how many of the 3 positions (s, i, i+1) are present and how
+      // many need a fortune.
+      let present = 0;
+      const needFortuneAt: number[] = [];
+      if (counts[s] > 0) present++; else needFortuneAt.push(s);
+      if (counts[i] > 0) present++; else needFortuneAt.push(i);
+      if (counts[i + 1] > 0) present++; else needFortuneAt.push(i + 1);
+      const needF = needFortuneAt.length;
+      if (present >= 1 && fortuneCount >= needF) {
+        // Consume real tiles
+        if (counts[s] > 0) counts[s]--;
+        if (counts[i] > 0) counts[i]--;
+        if (counts[i + 1] > 0) counts[i + 1]--;
+        if (tryDecomposeStandard(counts, fortuneCount - needF, meldsNeeded - 1)) {
+          if (counts[s] >= 0) counts[s]++; // restore (harmless no-op when was 0)
+          if (counts[i] >= 0) counts[i]++;
+          if (counts[i + 1] >= 0) counts[i + 1]++;
+          return true;
+        }
+        if (counts[s] >= 0) counts[s]++;
+        if (counts[i] >= 0) counts[i]++;
+        if (counts[i + 1] >= 0) counts[i + 1]++;
+      }
+    }
+
+    // Shift start back by 2 (i → i-2).  Only possible when posInSuit ≤ 8.
+    if (posInSuit <= 8) {
+      const s = i - 2; // new start, guaranteed s % 9 ≤ 6
+      let present = 0;
+      const needFortuneAt: number[] = [];
+      if (counts[s] > 0) present++; else needFortuneAt.push(s);
+      if (counts[s + 1] > 0) present++; else needFortuneAt.push(s + 1);
+      if (counts[i] > 0) present++; else needFortuneAt.push(i);
+      const needF = needFortuneAt.length;
+      if (present >= 1 && fortuneCount >= needF) {
+        if (counts[s] > 0) counts[s]--;
+        if (counts[s + 1] > 0) counts[s + 1]--;
+        if (counts[i] > 0) counts[i]--;
+        if (tryDecomposeStandard(counts, fortuneCount - needF, meldsNeeded - 1)) {
+          if (counts[s] >= 0) counts[s]++;
+          if (counts[s + 1] >= 0) counts[s + 1]++;
+          if (counts[i] >= 0) counts[i]++;
+          return true;
+        }
+        if (counts[s] >= 0) counts[s]++;
+        if (counts[s + 1] >= 0) counts[s + 1]++;
+        if (counts[i] >= 0) counts[i]++;
       }
     }
   }

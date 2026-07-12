@@ -20,6 +20,10 @@ interface PlayerAreaProps {
   winAnimTileId?: string; // Tile that completed a win (win-flash highlight)
   drawnTileId?: string; // Tile just drawn (shown on the right side)
   isBreathing?: boolean; // Apply breathing animation to this player's hand
+  // Auto-play toggle (only used for the human / bottom position)
+  isTenpai?: boolean;
+  isAutoPlay?: boolean;
+  onToggleAutoPlay?: () => void;
 }
 
 export function PlayerArea({
@@ -30,6 +34,9 @@ export function PlayerArea({
   isBreathing = false,
   drawnTileId,
   winAnimTileId,
+  isTenpai,
+  isAutoPlay,
+  onToggleAutoPlay,
 }: PlayerAreaProps) {
   const { settings } = useSettingsStore();
   const drawDuration = getAnimationDuration('draw', settings.animationSpeed);
@@ -89,7 +96,7 @@ export function PlayerArea({
               <MeldDisplay melds={player.melds} position="bottom" />
             </div>
             {label}
-            <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 6, paddingBottom: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 80, paddingTop: 6, paddingBottom: 6 }}>
               <PlayerHand tiles={player.hand} faceUp={isHuman} position="bottom"
                 selectedTileId={selectedTileId} onTileClick={onTileClick} compact={false} vertical={false}
                 anchor="start"
@@ -103,6 +110,32 @@ export function PlayerArea({
                 drawnTileId={drawnTileId}
                 winAnimTileId={winAnimTileId}
               />
+              {/* Auto-play toggle — beside the hand on the right */}
+              {isTenpai && onToggleAutoPlay && (
+                <button
+                  onClick={onToggleAutoPlay}
+                  style={{
+                    padding: '6px 14px',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    borderRadius: '6px',
+                    background: isAutoPlay
+                      ? 'linear-gradient(135deg, #e8d48b, #c9a94e)'
+                      : 'rgba(201,169,78,0.15)',
+                    color: isAutoPlay ? '#0a1628' : 'rgba(201,169,78,0.85)',
+                    border: isAutoPlay
+                      ? '1px solid #c9a94e'
+                      : '1px solid rgba(201,169,78,0.35)',
+                    cursor: 'pointer',
+                    letterSpacing: '0.05em',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                    alignSelf: 'center',
+                  }}
+                >
+                  {isAutoPlay ? '托管中' : '托管'}
+                </button>
+              )}
             </div>
           </div>
         </div>

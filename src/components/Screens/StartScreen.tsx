@@ -7,6 +7,8 @@ import { playClick } from '../../audio/soundManager';
 
 interface StartScreenProps {
   onStart: (settings: Partial<GameSettings>) => void;
+  onContinue?: () => void;
+  hasSavedGame?: boolean;
 }
 
 const DIFFICULTY_OPTIONS: { value: 'easy' | 'medium' | 'hard'; label: string; desc: string }[] = [
@@ -21,7 +23,7 @@ const ANIM_OPTIONS: { value: 'slow' | 'normal' | 'fast'; label: string }[] = [
   { value: 'fast', label: '快' },
 ];
 
-export function StartScreen({ onStart }: StartScreenProps) {
+export function StartScreen({ onStart, onContinue, hasSavedGame }: StartScreenProps) {
   const { settings, update } = useSettingsStore();
   const [showSettings, setShowSettings] = useState(false);
 
@@ -50,6 +52,11 @@ export function StartScreen({ onStart }: StartScreenProps) {
       baseScore: settings.baseScore,
       initialScore: settings.initialScore,
     });
+  };
+
+  const handleContinue = () => {
+    playClick();
+    onContinue?.();
   };
 
   const handleToggleSettings = () => { playClick(); setShowSettings((v) => !v); };
@@ -127,21 +134,22 @@ export function StartScreen({ onStart }: StartScreenProps) {
             padding: '20px 28px',
             background: 'rgba(10,22,40,0.8)',
             borderRadius: '12px',
-            border: '1px solid rgba(201,169,78,0.2)',
+            border: '1px solid rgba(201,169,78,0.15)',
             minWidth: 320,
           }}>
             {/* AI Difficulty */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={{ fontSize: '12px', color: '#c9a94e', letterSpacing: '0.1em' }}>AI 难度</label>
-              <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <label style={{ fontSize: '12px', color: '#c9a94e', letterSpacing: '0.1em', minWidth: 50 }}>AI</label>
+              <div style={{ display: 'flex', gap: 4 }}>
                 {DIFFICULTY_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
                     onClick={() => { playClick(); update({ aiDifficulty: opt.value }); }}
+                    title={opt.desc}
                     style={{
                       flex: 1,
-                      padding: '8px 10px',
-                      fontSize: '13px',
+                      padding: '6px 8px',
+                      fontSize: '12px',
                       borderRadius: '6px',
                       background: settings.aiDifficulty === opt.value
                         ? 'linear-gradient(135deg, #c9a94e, #e8d48b)'
@@ -152,28 +160,26 @@ export function StartScreen({ onStart }: StartScreenProps) {
                         : '1px solid rgba(201,169,78,0.15)',
                       cursor: 'pointer',
                       fontWeight: settings.aiDifficulty === opt.value ? 700 : 400,
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     {opt.label}
                   </button>
                 ))}
               </div>
-              <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', textAlign: 'center' }}>
-                {DIFFICULTY_OPTIONS.find((o) => o.value === settings.aiDifficulty)?.desc}
-              </p>
             </div>
 
             {/* Animation speed */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={{ fontSize: '12px', color: '#c9a94e', letterSpacing: '0.1em' }}>动画速度</label>
-              <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <label style={{ fontSize: '12px', color: '#c9a94e', letterSpacing: '0.1em', minWidth: 50 }}>动画</label>
+              <div style={{ display: 'flex', gap: 4 }}>
                 {ANIM_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
-                    onClick={() => update({ animationSpeed: opt.value })}
+                    onClick={() => { playClick(); update({ animationSpeed: opt.value }); }}
                     style={{
                       flex: 1,
-                      padding: '6px 10px',
+                      padding: '6px 8px',
                       fontSize: '12px',
                       borderRadius: '6px',
                       background: settings.animationSpeed === opt.value
@@ -184,6 +190,7 @@ export function StartScreen({ onStart }: StartScreenProps) {
                         ? '1px solid rgba(201,169,78,0.4)'
                         : '1px solid rgba(201,169,78,0.1)',
                       cursor: 'pointer',
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     {opt.label}
@@ -193,37 +200,39 @@ export function StartScreen({ onStart }: StartScreenProps) {
             </div>
 
             {/* Sound toggle */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <label style={{ fontSize: '12px', color: '#c9a94e', letterSpacing: '0.1em' }}>音效</label>
-              <button
-                onClick={() => { playClick(); update({ soundEnabled: !settings.soundEnabled }); }}
-                style={{
-                  width: 44,
-                  height: 24,
-                  borderRadius: '12px',
-                  padding: 0,
-                  background: settings.soundEnabled
-                    ? 'linear-gradient(135deg, #c9a94e, #e8d48b)'
-                    : 'rgba(255,255,255,0.1)',
-                  border: '1px solid rgba(201,169,78,0.3)',
-                  cursor: 'pointer',
-                  position: 'relative',
-                }}
-              >
-                <div style={{
-                  position: 'absolute',
-                  top: 2,
-                  width: 18,
-                  height: 18,
-                  borderRadius: '50%',
-                  background: '#fff',
-                  left: settings.soundEnabled ? 22 : 2,
-                  transition: 'left 0.2s',
-                }} />
-              </button>
-              <span style={{ fontSize: '11px', color: settings.soundEnabled ? '#c9a94e' : 'rgba(255,255,255,0.3)', width: 30, textAlign: 'right' }}>
-                {settings.soundEnabled ? '开' : '关'}
-              </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <label style={{ fontSize: '12px', color: '#c9a94e', letterSpacing: '0.1em', minWidth: 50 }}>音效</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  onClick={() => { playClick(); update({ soundEnabled: !settings.soundEnabled }); }}
+                  style={{
+                    width: 44,
+                    height: 24,
+                    borderRadius: '12px',
+                    padding: 0,
+                    background: settings.soundEnabled
+                      ? 'linear-gradient(135deg, #c9a94e, #e8d48b)'
+                      : 'rgba(255,255,255,0.1)',
+                    border: '1px solid rgba(201,169,78,0.3)',
+                    cursor: 'pointer',
+                    position: 'relative',
+                  }}
+                >
+                  <div style={{
+                    position: 'absolute',
+                    top: 2,
+                    width: 18,
+                    height: 18,
+                    borderRadius: '50%',
+                    background: '#fff',
+                    left: settings.soundEnabled ? 22 : 2,
+                    transition: 'left 0.2s',
+                  }} />
+                </button>
+                <span style={{ fontSize: '11px', color: settings.soundEnabled ? '#c9a94e' : 'rgba(255,255,255,0.3)', width: 30, textAlign: 'right' }}>
+                  {settings.soundEnabled ? '开' : '关'}
+                </span>
+              </div>
             </div>
 
             {/* Base score */}
@@ -277,26 +286,55 @@ export function StartScreen({ onStart }: StartScreenProps) {
           </div>
         )}
 
-        {/* Start button */}
-        <button
-          onClick={handleStart}
-          style={{
-            padding: '14px 56px',
-            fontSize: '22px',
-            fontWeight: 700,
-            borderRadius: '10px',
-            letterSpacing: '0.3em',
-            background:
-              'linear-gradient(135deg, #c9a94e 0%, #e8d48b 50%, #c9a94e 100%)',
-            color: '#0a1628',
-            boxShadow: '0 4px 24px rgba(201,169,78,0.4)',
-            border: 'none',
-            cursor: 'pointer',
-            fontFamily: "'Noto Serif SC', serif",
-          }}
-        >
-          开始游戏
-        </button>
+        {/* Buttons */}
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+          {/* Continue button - only show if there's a saved game */}
+          {hasSavedGame && onContinue && (
+            <button
+              onClick={handleContinue}
+              style={{
+                padding: '14px 48px',
+                minWidth: '200px',
+                fontSize: '20px',
+                fontWeight: 700,
+                borderRadius: '10px',
+                letterSpacing: '0.3em',
+                background:
+                  'linear-gradient(135deg, #c9a94e 0%, #e8d48b 50%, #c9a94e 100%)',
+                color: '#0a1628',
+                boxShadow: '0 4px 24px rgba(201,169,78,0.4)',
+                border: 'none',
+                cursor: 'pointer',
+                fontFamily: "'Noto Serif SC', serif",
+              }}
+            >
+              继续游戏
+            </button>
+          )}
+          
+          {/* New game button */}
+          <button
+            onClick={handleStart}
+            style={{
+              padding: '14px 48px',
+              minWidth: '200px',
+              fontSize: '20px',
+              fontWeight: 700,
+              borderRadius: '10px',
+              letterSpacing: '0.3em',
+              background:
+                'linear-gradient(135deg, #c9a94e 0%, #e8d48b 50%, #c9a94e 100%)',
+              color: '#0a1628',
+              boxShadow: '0 4px 24px rgba(201,169,78,0.4)',
+              border: 'none',
+              cursor: 'pointer',
+              fontFamily: "'Noto Serif SC', serif",
+            }}
+          >
+            {hasSavedGame ? '新游戏' : '开始游戏'}
+          </button>
+        </div>
+        
         <div className="text-center space-y-1">
           <p className="text-xs text-ivory-dark/30">
             四人麻将 · 136张牌 · 白板万能财神
