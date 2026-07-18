@@ -24,7 +24,13 @@ const DEFAULT_SETTINGS: GameSettings = {
   baseScore: 1,
   initialScore: 1000,
   soundEnabled: false,
-};
+  playerNames: {
+    human: '测试玩家',
+    ai1: 'AI东',
+    ai2: 'AI南',
+    ai3: 'AI西',
+  },
+};;
 
 const FORTUNE_TYPE: TileType = { honor: 'bai' };
 

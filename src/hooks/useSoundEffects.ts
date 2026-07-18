@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useSettingsStore } from '../store/settingsStore';
-import { bindUnlockOnGesture, getCtx, playForEvent, setSoundEnabled } from '../audio/soundManager';
+import { bindUnlockOnGesture, getCtx, playForEvent, playForWinType, setSoundEnabled } from '../audio/soundManager';
 
 /**
  * useSoundEffects — listens to the game event log and plays a matching
@@ -12,6 +12,7 @@ import { bindUnlockOnGesture, getCtx, playForEvent, setSoundEnabled } from '../a
  */
 export function useSoundEffects() {
   const eventLog = useGameStore((s) => s.gameState.eventLog);
+  const lastWinResult = useGameStore((s) => s.gameState.lastWinResult);
   const soundEnabled = useSettingsStore((s) => s.settings.soundEnabled);
   const lastIndexRef = useRef(-1);
 
@@ -33,6 +34,13 @@ export function useSoundEffects() {
     lastIndexRef.current = idx;
     if (!soundEnabled) return;
     const ev = eventLog[idx];
-    if (ev) playForEvent(ev.kind);
-  }, [eventLog, soundEnabled]);
+    if (!ev) return;
+    
+    // For hu events, play win-type specific sound
+    if (ev.kind === 'hu' && lastWinResult) {
+      playForWinType(lastWinResult);
+    } else {
+      playForEvent(ev.kind);
+    }
+  }, [eventLog, soundEnabled, lastWinResult]);
 }

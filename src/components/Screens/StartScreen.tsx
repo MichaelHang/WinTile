@@ -9,6 +9,7 @@ interface StartScreenProps {
   onStart: (settings: Partial<GameSettings>) => void;
   onContinue?: () => void;
   hasSavedGame?: boolean;
+  onShowStats?: () => void;
 }
 
 const DIFFICULTY_OPTIONS: { value: 'easy' | 'medium' | 'hard'; label: string; desc: string }[] = [
@@ -23,7 +24,7 @@ const ANIM_OPTIONS: { value: 'slow' | 'normal' | 'fast'; label: string }[] = [
   { value: 'fast', label: '快' },
 ];
 
-export function StartScreen({ onStart, onContinue, hasSavedGame }: StartScreenProps) {
+export function StartScreen({ onStart, onContinue, hasSavedGame, onShowStats }: StartScreenProps) {
   const { settings, update } = useSettingsStore();
   const [showSettings, setShowSettings] = useState(false);
 
@@ -60,6 +61,7 @@ export function StartScreen({ onStart, onContinue, hasSavedGame }: StartScreenPr
   };
 
   const handleToggleSettings = () => { playClick(); setShowSettings((v) => !v); };
+  const handleShowStats = () => { playClick(); onShowStats?.(); };
 
   return (
     <div
@@ -106,24 +108,45 @@ export function StartScreen({ onStart, onContinue, hasSavedGame }: StartScreenPr
           </div>
         </div>
 
-        {/* Settings toggle */}
-        <button
-          onClick={handleToggleSettings}
-          style={{
-            padding: '6px 20px',
-            fontSize: '13px',
-            borderRadius: '6px',
-            background: 'rgba(201,169,78,0.1)',
-            color: '#c9a94e',
-            border: '1px solid rgba(201,169,78,0.3)',
-            cursor: 'pointer',
-            fontFamily: "'Noto Serif SC', serif",
-            letterSpacing: '0.1em',
-          }}
-        >
-          {showSettings ? '收起设置' : '设置'}
-          <span style={{ marginLeft: 6, transition: 'transform 0.2s', display: 'inline-block', transform: showSettings ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
-        </button>
+        {/* Settings and Stats buttons */}
+        <div className="flex gap-3">
+          <button
+            onClick={handleToggleSettings}
+            style={{
+              padding: '6px 20px',
+              fontSize: '13px',
+              borderRadius: '6px',
+              background: 'rgba(201,169,78,0.1)',
+              color: '#c9a94e',
+              border: '1px solid rgba(201,169,78,0.3)',
+              cursor: 'pointer',
+              fontFamily: "'Noto Serif SC', serif",
+              letterSpacing: '0.1em',
+            }}
+          >
+            {showSettings ? '收起设置' : '设置'}
+            <span style={{ marginLeft: 6, transition: 'transform 0.2s', display: 'inline-block', transform: showSettings ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
+          </button>
+          
+          {onShowStats && (
+            <button
+              onClick={handleShowStats}
+              style={{
+                padding: '6px 20px',
+                fontSize: '13px',
+                borderRadius: '6px',
+                background: 'rgba(201,169,78,0.1)',
+                color: '#c9a94e',
+                border: '1px solid rgba(201,169,78,0.3)',
+                cursor: 'pointer',
+                fontFamily: "'Noto Serif SC', serif",
+                letterSpacing: '0.1em',
+              }}
+            >
+              战绩统计
+            </button>
+          )}
+        </div>
 
         {/* Settings panel */}
         {showSettings && (

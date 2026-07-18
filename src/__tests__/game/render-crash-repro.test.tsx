@@ -1,3 +1,4 @@
+import React from 'react';
 import { describe, it, expect } from 'vitest';
 import { act, Component } from 'react';
 import type { ErrorInfo } from 'react';

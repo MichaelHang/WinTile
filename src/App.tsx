@@ -3,7 +3,7 @@ import { useSettingsStore } from './store/settingsStore';
 import { useGameLoop } from './hooks/useGameLoop';
 import { useSoundEffects } from './hooks/useSoundEffects';
 import { usePlayerActions } from './hooks/usePlayerActions';
-import { useCallback, lazy, Suspense } from 'react';
+import { useCallback, lazy, Suspense, useState } from 'react';
 import { GameScreen } from './components/Screens/GameScreen';
 import './App.css';
 
@@ -16,6 +16,9 @@ const WinScreen = lazy(() =>
 );
 const DrawScreen = lazy(() =>
   import('./components/Screens/DrawScreen').then((m) => ({ default: m.DrawScreen }))
+);
+const StatsScreen = lazy(() =>
+  import('./components/Screens/StatsScreen').then((m) => ({ default: m.StatsScreen }))
 );
 
 function App() {
@@ -35,12 +38,23 @@ function App() {
   const hasSavedGame = useGameStore((s) => s.hasSavedGame);
   const nextRound = useGameStore((s) => s.nextRound);
   
+  const [showStats, setShowStats] = useState(false);
+  
   // New game with confirmation
   const handleNewGame = useCallback(() => {
     if (window.confirm('确定要重新开始吗？这将重置所有积分。')) {
       newGame();
     }
   }, [newGame]);
+
+  // Show stats screen
+  if (showStats) {
+    return (
+      <Suspense fallback={null}>
+        <StatsScreen onBack={() => setShowStats(false)} />
+      </Suspense>
+    );
+  }
 
   // ── Start screen ──
   if (gameState.phase === 'idle') {
@@ -50,6 +64,7 @@ function App() {
           onStart={(partialSettings) => newGame({ ...settings, ...partialSettings })}
           onContinue={continueGame}
           hasSavedGame={hasSavedGame}
+          onShowStats={() => setShowStats(true)}
         />
       </Suspense>
     );

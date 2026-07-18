@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { GameState, GameSettings } from '../engine/types';
 import { DEFAULT_SETTINGS, useSettingsStore } from './settingsStore';
 import { loadGameData, saveScoresAndWins, clearGameData } from './persistStore';
+import { recordGame } from './statsStore';
 import {
   createInitialState,
   startRound,
@@ -259,6 +260,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = executeHu(get().gameState, 0);
     set({ gameState: state });
     saveGameState(state);
+    
+    // Record game statistics
+    if (state.lastWinResult && state.lastWinnerIndex !== null && state.lastWinnerIndex !== undefined) {
+      const players = state.players.map(p => ({
+        name: p.name,
+        score: p.score,
+        isDealer: p.isDealer,
+      }));
+      
+      recordGame(
+        state.lastWinnerIndex,
+        state.lastWinResult,
+        players,
+        state.lastWinResult.fromWall
+      );
+    }
   },
 
   claimCaiPiao: (tileId: string) => {

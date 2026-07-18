@@ -19,7 +19,7 @@ export interface AppSettings {
 // Import this wherever you need defaults (e.g. gameStore, server).
 export const DEFAULT_SETTINGS: AppSettings = {
   aiDifficulty: 'medium',
-  soundEnabled: false,
+  soundEnabled: true,
   animationSpeed: 'normal',
   baseScore: 10,
   initialScore: 1000,

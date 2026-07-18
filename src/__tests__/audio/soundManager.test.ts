@@ -17,7 +17,7 @@ function installMockAudio() {
         exponentialRampToValueAtTime: vi.fn(),
         setTargetAtTime: vi.fn(),
       },
-      frequency: { value: 0, setValueAtTime: vi.fn() },
+      frequency: { value: 0, setValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() },
       Q: { value: 0 },
       type: '',
     };

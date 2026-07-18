@@ -45,6 +45,12 @@ const DEFAULT_SETTINGS: GameSettings = {
   baseScore: 1,
   initialScore: 500,
   soundEnabled: false,
+  playerNames: {
+    human: '测试玩家',
+    ai1: 'AI东',
+    ai2: 'AI南',
+    ai3: 'AI西',
+  },
 };
 
 // Helper: create state with fixed dealer for tests

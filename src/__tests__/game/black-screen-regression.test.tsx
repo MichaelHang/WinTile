@@ -1,3 +1,4 @@
+import React from 'react';
 // ============================================================
 // 回归测试：修复「对家(或任意 AI)摸牌后整页变黑」的崩溃
 //
@@ -23,7 +24,13 @@ const SETTINGS: GameSettings = {
   baseScore: 1,
   initialScore: 500,
   soundEnabled: false,
-};
+  playerNames: {
+    human: '测试玩家',
+    ai1: 'AI东',
+    ai2: 'AI南',
+    ai3: 'AI西',
+  },
+};;
 
 describe('drawn-tile crash regression', () => {
   it('PlayerHand 不崩溃：drawnTileId 不在手牌中时应安全跳过', () => {

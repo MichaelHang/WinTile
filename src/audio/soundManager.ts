@@ -104,6 +104,42 @@ function tone(
   osc.stop(start + dur + 0.02);
 }
 
+function toneWithVibrato(
+  freq: number,
+  start: number,
+  dur: number,
+  type: OscillatorType,
+  peak: number,
+  vibratoRate: number = 5,
+  vibratoDepth: number = 10
+) {
+  const ctx = audioCtx!;
+  const osc = ctx.createOscillator();
+  const vibrato = ctx.createOscillator();
+  const vibratoGain = ctx.createGain();
+  const g = ctx.createGain();
+  
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, start);
+  
+  vibrato.type = 'sine';
+  vibrato.frequency.setValueAtTime(vibratoRate, start);
+  vibratoGain.gain.setValueAtTime(vibratoDepth, start);
+  vibrato.connect(vibratoGain);
+  vibratoGain.connect(osc.frequency);
+  
+  g.gain.setValueAtTime(0.0001, start);
+  g.gain.exponentialRampToValueAtTime(peak, start + 0.008);
+  g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+  
+  osc.connect(g);
+  g.connect(master!);
+  osc.start(start);
+  osc.stop(start + dur + 0.02);
+  vibrato.start(start);
+  vibrato.stop(start + dur + 0.02);
+}
+
 function noiseBuffer(dur: number): AudioBuffer {
   const ctx = audioCtx!;
   const len = Math.max(1, Math.floor(ctx.sampleRate * dur));
@@ -138,6 +174,43 @@ function clack(
   src.stop(start + dur + 0.02);
 }
 
+/** A soft whoosh sound for tile sliding. */
+function whoosh(start: number, dur: number) {
+  const ctx = audioCtx!;
+  const src = ctx.createBufferSource();
+  src.buffer = noiseBuffer(dur);
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(2000, start);
+  lp.frequency.exponentialRampToValueAtTime(500, start + dur);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, start);
+  g.gain.exponentialRampToValueAtTime(0.08, start + dur * 0.3);
+  g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+  src.connect(lp);
+  lp.connect(g);
+  g.connect(master!);
+  src.start(start);
+  src.stop(start + dur + 0.02);
+}
+
+/** A rising chime for positive events. */
+function chime(start: number, freq1: number, freq2: number) {
+  const ctx = audioCtx!;
+  const osc = ctx.createOscillator();
+  const g = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(freq1, start);
+  osc.frequency.exponentialRampToValueAtTime(freq2, start + 0.15);
+  g.gain.setValueAtTime(0.0001, start);
+  g.gain.exponentialRampToValueAtTime(0.15, start + 0.03);
+  g.gain.exponentialRampToValueAtTime(0.0001, start + 0.2);
+  osc.connect(g);
+  g.connect(master!);
+  osc.start(start);
+  osc.stop(start + 0.22);
+}
+
 // ── game sounds ───────────────────────────────────────────
 
 export function playDiscard() {
@@ -153,7 +226,8 @@ export function playDraw() {
   const ctx = getCtx();
   if (!ctx || !master) return;
   const t = ctx.currentTime;
-  clack(t, 0.05, 2600 + Math.random() * 300, 0.07, 1);
+  whoosh(t, 0.08);
+  clack(t + 0.03, 0.05, 2600 + Math.random() * 300, 0.07, 1);
 }
 
 export function playPong() {
@@ -163,6 +237,7 @@ export function playPong() {
   clack(t, 0.1, 1700, 0.32, 1.2);
   clack(t + 0.06, 0.1, 1500, 0.28, 1.2);
   tone(200, t, 0.1, 'sine', 0.15);
+  chime(t + 0.1, 800, 1200); // Rising chime for pong
 }
 
 export function playChi() {
@@ -172,6 +247,7 @@ export function playChi() {
   for (let i = 0; i < 3; i++) {
     clack(t + i * 0.045, 0.06, 2300 - i * 200, 0.22, 1);
   }
+  chime(t + 0.15, 600, 900); // Rising chime for chi
 }
 
 export function playKong() {
@@ -181,18 +257,50 @@ export function playKong() {
   clack(t, 0.14, 850, 0.4, 0.9);
   tone(120, t, 0.16, 'sine', 0.25);
   tone(240, t + 0.02, 0.12, 'triangle', 0.12);
+  // Dramatic descending tone for kong
+  tone(400, t + 0.05, 0.2, 'sine', 0.15);
+  tone(300, t + 0.1, 0.15, 'sine', 0.1);
 }
 
 export function playHu() {
   const ctx = getCtx();
   if (!ctx || !master) return;
   const t = ctx.currentTime;
+  // Grand arpeggio
   const notes = [523.25, 659.25, 783.99, 1046.5]; // C5 E5 G5 C6
   notes.forEach((n, i) => {
-    tone(n, t + i * 0.09, 0.5, 'sine', 0.22);
-    tone(n * 2, t + i * 0.09, 0.3, 'triangle', 0.05);
+    tone(n, t + i * 0.08, 0.6, 'sine', 0.22);
+    tone(n * 2, t + i * 0.08, 0.3, 'triangle', 0.05);
   });
-  clack(t + 0.36, 0.2, 5000, 0.1, 0.5); // sparkle
+  // Shimmer effect
+  for (let i = 0; i < 4; i++) {
+    clack(t + 0.32 + i * 0.05, 0.15, 5000 + i * 500, 0.08, 0.5);
+  }
+  // Final chord
+  tone(523.25, t + 0.5, 0.8, 'sine', 0.18);
+  tone(659.25, t + 0.5, 0.8, 'sine', 0.18);
+  tone(783.99, t + 0.5, 0.8, 'sine', 0.18);
+}
+
+export function playHuLuxury() {
+  const ctx = getCtx();
+  if (!ctx || !master) return;
+  const t = ctx.currentTime;
+  // Even grander arpeggio for luxury win
+  const notes = [523.25, 659.25, 783.99, 1046.5, 1318.51, 1567.98]; // C5 to G6
+  notes.forEach((n, i) => {
+    toneWithVibrato(n, t + i * 0.06, 0.8, 'sine', 0.25, 6, 15);
+    tone(n * 2, t + i * 0.06, 0.4, 'triangle', 0.06);
+  });
+  // Extra sparkles
+  for (let i = 0; i < 6; i++) {
+    clack(t + 0.4 + i * 0.04, 0.2, 6000 + i * 300, 0.1, 0.4);
+  }
+  // Final chord with sustain
+  tone(523.25, t + 0.65, 1.2, 'sine', 0.2);
+  tone(659.25, t + 0.65, 1.2, 'sine', 0.2);
+  tone(783.99, t + 0.65, 1.2, 'sine', 0.2);
+  tone(1046.5, t + 0.65, 1.2, 'sine', 0.15);
 }
 
 export function playPass() {
@@ -235,10 +343,44 @@ export function playCaiPiao() {
   const t = ctx.currentTime;
   const notes = [659.25, 880, 1108.73, 1318.51]; // E5 A5 C#6 E6
   notes.forEach((n, i) => {
-    tone(n, t + i * 0.06, 0.4, 'sine', 0.2);
-    tone(n * 2, t + i * 0.06, 0.2, 'triangle', 0.04);
+    toneWithVibrato(n, t + i * 0.06, 0.5, 'sine', 0.22, 7, 12);
+    tone(n * 2, t + i * 0.06, 0.25, 'triangle', 0.05);
   });
-  clack(t + 0.3, 0.25, 6000, 0.12, 0.5); // sparkle
+  // Extra sparkle
+  for (let i = 0; i < 3; i++) {
+    clack(t + 0.3 + i * 0.04, 0.2, 6000 + i * 500, 0.12, 0.5);
+  }
+}
+
+/** 杠爆 (kong + bao tou) — dramatic double hit. */
+export function playGangBao() {
+  const ctx = getCtx();
+  if (!ctx || !master) return;
+  const t = ctx.currentTime;
+  // Kong part
+  clack(t, 0.14, 850, 0.4, 0.9);
+  tone(120, t, 0.16, 'sine', 0.25);
+  // Bao tou part
+  clack(t + 0.2, 0.1, 1700, 0.35, 1.2);
+  tone(200, t + 0.2, 0.12, 'sine', 0.18);
+  // Rising excitement
+  tone(400, t + 0.35, 0.2, 'sine', 0.15);
+  tone(600, t + 0.4, 0.25, 'sine', 0.12);
+}
+
+/** 清一色 (pure one suit) — elegant ascending scale. */
+export function playQingYiSe() {
+  const ctx = getCtx();
+  if (!ctx || !master) return;
+  const t = ctx.currentTime;
+  const scale = [523.25, 587.33, 659.25, 783.99, 880, 1046.5]; // C5 to C6
+  scale.forEach((n, i) => {
+    tone(n, t + i * 0.08, 0.4, 'sine', 0.2);
+  });
+  // Final chord
+  tone(523.25, t + 0.5, 0.6, 'sine', 0.18);
+  tone(659.25, t + 0.5, 0.6, 'sine', 0.18);
+  tone(1046.5, t + 0.5, 0.6, 'sine', 0.15);
 }
 
 /** Map a game event kind to its sound. */
@@ -271,8 +413,32 @@ export function playForEvent(kind: string) {
     case 'caiPiao':
       playCaiPiao();
       break;
+    case 'gangBao':
+      playGangBao();
+      break;
+    case 'qingYiSe':
+      playQingYiSe();
+      break;
+    case 'huLuxury':
+      playHuLuxury();
+      break;
     default:
       // kong / mingkong / ankong / jiagang (加杠 contains "gang", not "kong")
       if (kind === 'jiagang' || kind.includes('kong')) playKong();
+  }
+}
+
+/** Play sound for specific win types. */
+export function playForWinType(winResult: import('../engine/types').WinResult) {
+  if (winResult.isLuxury) {
+    playHuLuxury();
+  } else if (winResult.isQingYiSe) {
+    playQingYiSe();
+  } else if (winResult.isGangBao) {
+    playGangBao();
+  } else if (winResult.isCaiPiao) {
+    playCaiPiao();
+  } else {
+    playHu();
   }
 }

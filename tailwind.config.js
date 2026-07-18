@@ -16,6 +16,7 @@ export default {
         'red-china': '#c41e3a',
         wood: '#8b6914',
         'wood-dark': '#5c4510',
+        'dark-card': 'rgba(10, 22, 40, 0.8)',
       },
       fontFamily: {
         display: ['Georgia', 'serif'],
